@@ -64,9 +64,12 @@ python3 bindgen.py shim generic.json core.wasm -o shim.wat --c-module python --d
   - `run_sync`/blocking calls suspend through JSPI.
   - `asyncio.Runner.close()` and `asyncio.run()` cancel only the current request's other tasks.
   - A trap in any call discards the instance: the next call gets a new one, and the calls still suspended in the old one fail.
-- **Python ↔ JS.** `from js import ...`, `pyodide.ffi` (`to_js`, `create_proxy`, `JsProxy`, `JsBuffer`) and `import_from_javascript` behave as in Pyodide.
-  - `to_js(dict)` gives a Map whose string keys also read as properties, as Pyodide's LiteralMap does.
-  - JS buffers keep their identity.
+- **Python ↔ JS.** `from js import ...`, `pyodide.ffi` and `import_from_javascript` behave as in Pyodide; `ffi-diff/run.sh` runs the same probe on both and diffs the output.
+  - A Python value other than a number, string, bool or None reaches JS as a PyProxy (`host/generic.js`), whose operations call Python synchronously through the `dispatchSync` export. A JS call into a Python function returns its result inline.
+  - A PyProxy made for a call's argument is borrowed and destroyed once the call returns, or once the promise it returned settles. One stored on a JS object, returned to JS, or made by `create_proxy` lives until `destroy()` or until JS drops it (FinalizationRegistry).
+  - A blocking wait (`run_sync`) inside such a synchronous call raises Pyodide's "Cannot stack switch" error, and `can_run_sync()` is False there.
+  - JS values get one JsProxy class per set of type flags (`isinstance` with `JsArray`, `JsMap`, `JsBuffer`... asks the flags). Errors are `JsException`, promises `PyodideFuture`, bigints `JsBigInt` and null `jsnull`. A PythonError coming back raises the original exception again.
+  - `to_js(dict)` gives a plain object, and JS buffers keep their identity.
 - **Sockets and TLS.** `socket`, `ssl` and asyncio streams run over `cloudflare:sockets` (`runtime/_cf_sockets.py`, `runtime/_cf_ssl.py`). `wrap_socket` upgrades with `startTls`.
 - **Files.** `vfs.c` serves wasi-libc's filesystem calls from memory once the snapshot is taken:
   - the app's files, read-only, at `/app` and `/session/metadata`;
@@ -133,7 +136,7 @@ Docstrings are left out everywhere: C modules (`--without-doc-strings`), the std
 - **Sync:** projects are synced with `packages/sync.py`, as `build.sh` does. The Hyperdrive tests' native drivers (asyncpg, psycopg-binary) have no recipe and are left out; those tests need local databases and are skipped.
 - **Threads:** there are none, so `run_in_executor` runs its function inline, as in Pyodide's WebLoop. That covers asyncio's `to_thread` and asgiref's `sync_to_async`, which Django's async path depends on.
 - **Workflows:** the SDK's own JS modules (`python_modules/workers/*.js`) are bundled for `doAnImport`. A Python exception reaching JS has the shape of Pyodide's `PythonError`.
-- **`socket.gethostbyname`** returns IPv4 literals as is and raises `gaierror` for names. Pyodide returns a placeholder address instead.
+- **The resolver** is Emscripten's, as in Pyodide: there is no DNS, so `gethostbyname` and `getaddrinfo` give a name a made-up address (`172.29.<n>.0` for the n-th name), which connecting maps back to the name. `gethostname()` is `emscripten`, and the `AF_*` and `SOCK_*` constants have Emscripten's values.
 
 ## Size and speed
 
@@ -207,6 +210,10 @@ The build caps linear memory at 96 MiB (`MAX_MEMORY_MIB`), below the isolate's 1
 | FastAPI, `-c 200` | 20k | 25.3 MiB, 53117 objects, 2 slots |
 | `soak/ws.mjs`: 6000 hibernatable WebSockets × 20 messages, over 50 objects | 120k messages | 12.1 MiB, 153 slots, no failures |
 
+With Pyodide's proxies, JS holds PyProxies the way Pyodide's does, and FinalizationRegistry frees them in batches as JS collects (`py` in the samples). 20k-request runs on 2026-11-24:
+- **Default** `/`, `/kv`, `/do/a`: 13.6 MiB from 13k requests on, slots 5, the object count a sawtooth between about 23k and 46k.
+- **FastAPI**: 30.6 MiB from 17k requests on. Each request leaves four PyProxies (the iterator and tuples `Object.fromEntries(headers)` reads from a list), up to about 23k between collections, and the high-water mark follows the largest batch.
+
 Results for the `soak/app` routes, 6000 requests each:
 - **Flat:** implicit proxies, `create_proxy` + `destroy()`, cycles through JS, `.then` chains and Durable Object state.
 - **Bounded by the GC:** kept proxies, `gather`, `wait_until` and tasks orphaned at the end of a request.
@@ -222,8 +229,8 @@ Results for the `soak/app` routes, 6000 requests each:
 - **cffi can't call by address.** ABI-mode calls and callbacks raise `NotImplementedError`; compiled API-mode modules work.
 - **No dynamic loading:** native modules are linked in at build time.
 - **pytest-asyncio 1.1 is the newest that works.** From 1.2 on it calls `asyncio.Runner` in a way that waits on the task running pytest. workerd's Pyodide tests pin 1.1 for the same reason.
-- **A synchronous JS call into a Python callback returns a promise.** The bridge defers JS→Wasm calls made while Python runs, so JS gets the result later, not as the call's return value. In Pyodide the callback runs inline. Code that awaits the result works in both.
 - **A `create_proxy` in a cycle through JS leaks until `destroy()`.** This is the same as in Pyodide: the proxy holds its function, and the JS side holds the proxy.
-- **A function passed to JS implicitly goes once its request is done.** JS calling it later gets "this Python callback was destroyed". `create_proxy` keeps one until `destroy()`. Where FinalizationRegistry exists (compatibility dates from 2025-05-05), a callback also goes as soon as JS drops it.
-- **A Durable Object's Python object is dropped through FinalizationRegistry** once workerd drops the object. Before 2025-05-05 it lives as long as the instance.
+- **Without FinalizationRegistry (compatibility dates before 2025-05-05), an owned PyProxy JS drops is never freed,** as in Pyodide.
+- **A Durable Object's Python object is dropped through FinalizationRegistry** once workerd drops the object. Without it, the object for an id is dropped when workerd makes a new one for the same id, so the state left over is bounded by the ids the isolate has seen.
+- **MROs differ in one place:** a `JsException` is a Python exception holding its JsProxy, since a class can't extend both `Exception` and the C type JS values are; its MRO matches Pyodide's by name.
 - **A trap discards the instance and fails every request in flight on it,** since they share it.
