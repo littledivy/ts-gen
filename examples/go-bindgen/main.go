@@ -1,0 +1,220 @@
+// go-bindgen generates Go bindings from a ts-gen IR lowered by `ts-gen-abi
+// lower` under the profile "all-linear, jspi = on", and the Wasm shim that
+// adapts the compiled Go module to the `tw` ABI ts-gen-bridge implements.
+// It reads the lowered JSON only.
+package main
+
+import (
+	_ "embed"
+	"fmt"
+	"go/format"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+const usage = `usage:
+  go-bindgen bindings <lowered.json> --out <dir> [--lib <lib.json>]... [--package <name>]
+                      [--roots A,B,...] [--main <file> --import <path>]
+                      [--no-callbacks | --callbacks-for <module.wasm>]
+  go-bindgen shim <manifest.json> <module.wasm> -o <shim.wat>
+  go-bindgen runtime-ir
+
+bindings writes the package <name> (default: workers) to <dir>: bindings.go,
+runtime.go, json.go, manifest.json and skipped.txt (what it leaves out, and
+why). The IR must include runtime-ir's declarations. Without --roots it binds
+the IR's own declarations, and what they reach in the libs; --roots limits
+the bindings to those declarations and global members, and what their
+members reach. The IR's exports always count. --main writes the
+package-main glue that passes the app's handlers (funcs named after the
+exports) to the package, which --import names. A callback type's trampoline
+is exported only for the imports the app uses: --no-callbacks builds the app
+without any, and --callbacks-for reads which imports such a build has.
+
+shim writes the shim for a module built against the bindings, for the imports
+and exports it has; merge it into the module (wasm-merge <module> go <shim>
+shim).
+
+runtime-ir prints the declarations the bindings' runtime needs.`
+
+//go:embed runtime/runtime.go
+var runtimeSrc string
+
+//go:embed runtime/json.go
+var jsonSrc string
+
+//go:embed runtime/runtime.ir
+var runtimeIR string
+
+func main() {
+	if len(os.Args) < 2 {
+		die(usage)
+	}
+	switch os.Args[1] {
+	case "bindings":
+		bindings(os.Args[2:])
+	case "shim":
+		shim(os.Args[2:])
+	case "runtime-ir":
+		fmt.Print(runtimeIR)
+	case "-h", "--help":
+		fmt.Println(usage)
+	default:
+		die(usage)
+	}
+}
+
+func die(msg string) {
+	fmt.Fprintln(os.Stderr, msg)
+	os.Exit(2)
+}
+
+func check(err error) {
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+}
+
+type flags struct {
+	pos  []string
+	vals map[string][]string
+	bool map[string]bool
+}
+
+func parseFlags(args []string, withValue, boolean string) flags {
+	f := flags{vals: map[string][]string{}, bool: map[string]bool{}}
+	wv, bv := set(withValue), set(boolean)
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case wv[a] && i+1 < len(args):
+			f.vals[a] = append(f.vals[a], args[i+1])
+			i++
+		case bv[a]:
+			f.bool[a] = true
+		case strings.HasPrefix(a, "-"):
+			die("unknown option " + a + "\n" + usage)
+		default:
+			f.pos = append(f.pos, a)
+		}
+	}
+	return f
+}
+
+func (f flags) one(k, dflt string) string {
+	if v := f.vals[k]; len(v) > 0 {
+		return v[len(v)-1]
+	}
+	return dflt
+}
+
+// checkProfile: Go's bindings are linear (no externref, so the shim), with
+// multi-value results and tags (the shim adapts both), and JSPI.
+func checkProfile(p map[string]string) error {
+	want := map[string]string{"str": "linear+utf8", "handles": "linear", "vec": "linear", "array": "linear", "memory": "32", "results": "multi", "throws": "tag", "jspi": "on"}
+	var bad []string
+	for k, v := range want {
+		if p[k] != v {
+			bad = append(bad, fmt.Sprintf("%s = %s", k, p[k]))
+		}
+	}
+	if len(bad) > 0 {
+		return fmt.Errorf("go-bindgen needs the profile \"all-linear, jspi = on\"; got %s", strings.Join(bad, ", "))
+	}
+	return nil
+}
+
+func bindings(args []string) {
+	f := parseFlags(args, "--out --lib --package --roots --main --import --callbacks-for", "--no-callbacks")
+	if len(f.pos) != 1 || f.one("--out", "") == "" {
+		die(usage)
+	}
+	low, err := readLowered(f.pos[0])
+	check(err)
+	check(checkProfile(low.Profile))
+	var libs []*Lowered
+	for _, p := range f.vals["--lib"] {
+		l, err := readLowered(p)
+		check(err)
+		libs = append(libs, l)
+	}
+	pkg := f.one("--package", "workers")
+	g := newGen(low, libs, pkg)
+	var roots []string
+	if r := f.one("--roots", ""); r != "" {
+		roots = strings.Split(r, ",")
+	}
+	g.selectRoots(roots)
+	if p := f.one("--callbacks-for", ""); p != "" {
+		b, err := os.ReadFile(p)
+		check(err)
+		imps, _, err := wasmInterface(b)
+		check(err)
+		g.keepCallbacksFor = map[string]bool{}
+		for _, i := range imps {
+			if i[0] == "shim" {
+				g.keepCallbacksFor[i[1]] = true
+			}
+		}
+	} else if f.bool["--no-callbacks"] {
+		g.keepCallbacksFor = map[string]bool{}
+	}
+	g.emitAll()
+	out := f.one("--out", "")
+	check(os.MkdirAll(out, 0o755))
+	check(os.WriteFile(filepath.Join(out, "bindings.go"), gofmt(g.goSource()), 0o644))
+	for name, src := range map[string]string{"runtime.go": runtimeSrc, "json.go": jsonSrc} {
+		rt := strings.Replace(src, "//go:build tsgen_runtime\n\n", "", 1)
+		rt = strings.Replace(rt, "package tsgenruntime", "package "+pkg, 1)
+		check(os.WriteFile(filepath.Join(out, name), []byte("// Code generated by go-bindgen. DO NOT EDIT.\n\n"+rt), 0o644))
+	}
+	check(os.WriteFile(filepath.Join(out, "manifest.json"), g.manifest(), 0o644))
+	var skips strings.Builder
+	for _, s := range g.skipped {
+		fmt.Fprintf(&skips, "%s: %s\n", s.Key, s.Why)
+	}
+	check(os.WriteFile(filepath.Join(out, "skipped.txt"), []byte(skips.String()), 0o644))
+	if m := f.one("--main", ""); m != "" {
+		imp := f.one("--import", "")
+		if imp == "" {
+			die("--main needs --import <path of the bindings package>")
+		}
+		check(os.WriteFile(m, gofmt(g.mainGlue(imp)), 0o644))
+	}
+	fmt.Printf("go-bindgen: %d declarations, %d members, %d imports, %d exports, %d skipped\n", len(g.selected), g.emitted, len(g.importSeq), len(g.exports), len(g.skipped))
+}
+
+// gofmt is src formatted, or src as it is if it doesn't parse (go build
+// then reports where).
+func gofmt(src string) []byte {
+	if b, err := format.Source([]byte(src)); err == nil {
+		return b
+	}
+	return []byte(src)
+}
+
+func shim(args []string) {
+	f := parseFlags(args, "-o", "")
+	if len(f.pos) != 2 || f.one("-o", "") == "" {
+		die(usage)
+	}
+	b, err := os.ReadFile(f.pos[0])
+	check(err)
+	var m manifest
+	check(jsonUnmarshal(b, &m))
+	wasm, err := os.ReadFile(f.pos[1])
+	check(err)
+	imps, exps, err := wasmInterface(wasm)
+	check(err)
+	used, exported := map[string]bool{}, map[string]bool{}
+	for _, i := range imps {
+		if i[0] == "shim" {
+			used[i[1]] = true
+		}
+	}
+	for _, e := range exps {
+		exported[e] = true
+	}
+	check(os.WriteFile(f.one("-o", ""), []byte(shimWat(&m, used, exported)), 0o644))
+}
