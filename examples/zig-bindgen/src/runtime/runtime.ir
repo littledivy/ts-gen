@@ -1,0 +1,13 @@
+// Declarations the Zig runtime (zig-bindgen's tsgen.zig) needs, appended
+// to the IR ts-gen writes: plain objects, for encoding Zig structs as JS
+// objects and decoding JS objects as Zig structs. They name no API.
+
+/// Zig runtime: a plain object's properties by name.
+interface TsgenObject {
+  @js(object)
+  new();
+  @js(index)
+  at(key: str): Any?;
+  @js(index)
+  setAt(key: str, value: Any?);
+}
