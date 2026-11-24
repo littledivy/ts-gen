@@ -197,6 +197,16 @@ def check_numpy():
     except RuntimeError as e:
         assert "zero-length" in str(e), e
     assert list(np.unique(np.array([3, 1, 3, 2]), sorted=False)) in ([3, 1, 2], [1, 2, 3], [1, 3, 2], [2, 3, 1], [3, 2, 1], [2, 1, 3])
+    # RandomState's legacy integer distributions and Generator's, seeded:
+    # the values numpy gives on a 64-bit host.
+    r = np.random.RandomState(0)
+    assert [r.poisson(3.0, 4).tolist(), r.binomial(10, 0.4, 4).tolist(), r.negative_binomial(3, 0.4, 4).tolist(),
+            r.geometric(0.3, 4).tolist(), r.zipf(2.0, 4).tolist(), r.hypergeometric(10, 5, 6, 4).tolist(),
+            r.logseries(0.5, 4).tolist()] == [[5, 6, 2, 0], [5, 5, 6, 7], [2, 7, 8, 8], [2, 1, 1, 1], [2, 1, 5, 6],
+                                              [3, 6, 5, 3], [1, 1, 5, 6]]
+    g = np.random.default_rng(0)
+    assert [g.poisson(3.0, 4).tolist(), g.binomial(10, 0.4, 4).tolist(), g.geometric(0.3, 4).tolist()] == [
+        [2, 0, 7, 1], [5, 3, 6, 4], [1, 5, 1, 1]]
 
 
 def check_pillow():
@@ -241,13 +251,42 @@ def check_shapely():
     assert shapely.geos_version >= (3, 14, 0)
 
 
+def check_pywavelets():
+    import numpy as np
+    import pywt
+    import pywt.data
+    x = np.arange(16.0)
+    ca, cd = pywt.dwt(x, "db2")
+    assert np.allclose(pywt.idwt(ca, cd, "db2"), x)
+    coeffs = pywt.wavedec2(pywt.data.camera()[:64, :64].astype(float), "haar", level=2)
+    assert coeffs[0].shape == (16, 16)
+    assert len(pywt.swt(x, "haar", level=2)) == 2
+    cwt, _ = pywt.cwt(np.sin(np.linspace(0, 8, 64)), [1, 2, 4], "morl")
+    assert cwt.shape == (3, 64)
+    assert pywt.Wavelet("sym4").dec_len == 8 and "db4" in pywt.wavelist("db")
+    try:
+        pywt.Wavelet("nope")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("unknown wavelet accepted")
+
+
+def check_beautifulsoup4():
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup("<ul><li class=a>one</li><li>two</li></ul><p id=x>hi</p>", "html.parser")
+    assert [li.get_text() for li in soup.select("ul > li")] == ["one", "two"]
+    assert soup.select_one("li.a").get_text() == "one" and soup.find(id="x").string == "hi"
+
+
 CHECKS = {k[len("check_"):]: v for k, v in sorted(globals().items()) if k.startswith("check_")}
 MODULES = {"multidict": "multidict", "yarl": "yarl", "propcache": "propcache", "frozenlist": "frozenlist",
            "aiohttp": "aiohttp", "msgspec": "msgspec", "xxhash": "xxhash", "regex": "regex",
            "websockets": "websockets", "markupsafe": "markupsafe", "pyyaml": "yaml", "zstandard": "zstandard",
            "cffi": "cffi", "charset_normalizer": "charset_normalizer", "jiter": "jiter", "orjson": "orjson",
            "rpds": "rpds", "uuid_utils": "uuid_utils", "tiktoken": "tiktoken", "cryptography": "cryptography",
-           "numpy": "numpy", "pydantic": "pydantic", "pillow": "PIL", "shapely": "shapely"}
+           "numpy": "numpy", "pydantic": "pydantic", "pillow": "PIL", "shapely": "shapely",
+           "pywavelets": "pywt", "beautifulsoup4": "bs4"}
 
 
 def present(name):
