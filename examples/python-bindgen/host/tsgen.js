@@ -345,7 +345,12 @@ const PASS_THROUGH = new Set(["constructor", "env", "ctx", "then", "toJSON"]);
 // `$cfObject` ("Class#n"), that the module keeps its state for the object
 // under, and once JS collects the object the module hears
 // dispatch("$drop-objects", "key,key,...") (with FinalizationRegistry).
+// Without one, a new object for an id the isolate already had one for
+// drops the old one's state: workerd runs one object per id at a time, so
+// that one is gone. Then state outlives its object only until the id comes
+// back, and is bounded by the ids the isolate has seen.
 let nextObject = 0;
+const byId = new Map(); // `${class}:${ctx.id}` -> the key of that id's object
 const objects = typeof FinalizationRegistry === "function" ? new FinalizationRegistry(({ key, pool }) => pool.current?.dropObject(key)) : undefined;
 
 /// A class for `name` from the module's `workers.classes` section: every
@@ -368,6 +373,13 @@ export function tsgenClass(cfg, name, info) {
         const key = `${name}#${++nextObject}`;
         Object.defineProperty(this, "$cfObject", { value: key });
         objects?.register(this, { key, pool });
+        const id = ctx?.id?.toString?.();
+        if (id !== undefined) {
+          const slot = `${name}:${id}`;
+          const prev = byId.get(slot);
+          if (prev !== undefined) pool.current?.dropObject?.(prev);
+          byId.set(slot, key);
+        }
       }
       return new Proxy(this, {
         get(obj, prop, receiver) {
