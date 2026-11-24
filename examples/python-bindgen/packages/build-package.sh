@@ -6,7 +6,9 @@
 # A recipe sets:
 #   VERSION   the version to build
 #   KIND      pure | pyo3 | meson | setuptools
-#   WHEELS    pure-Python distributions to install alongside (pip specs)
+#   WHEELS    pure-Python distributions to install alongside (pip specs);
+#             a spec "name==version@sha256" is downloaded with that hash
+#             required
 #   MODULES   native extension modules, as "dotted.module.name:PyInit_symbol"
 #   LDFLAGS   extra link flags for the Worker, e.g. "-lc++ -lc++abi"
 #   OPT_LEVEL the Rust opt-level for KIND=pyo3 (default 3)
@@ -54,8 +56,14 @@ rm -rf "$OUT" "$D/dl/$NAME" && mkdir -p "$OUT/lib" "$OUT/site" "$D/dl/$NAME"
 
 # Pure-Python distributions: wheels unpacked into site/.
 for spec in $WHEELS; do
+  req=()
+  case $spec in
+    *@*) printf '%s --hash=sha256:%s\n' "${spec%@*}" "${spec#*@}" > "$D/dl/$NAME/req.txt"
+         req=(--require-hashes -r "$D/dl/$NAME/req.txt") ;;
+    *) req=("$spec") ;;
+  esac
   "$VENV/bin/pip" download -q --no-deps --only-binary=:all: --python-version 3.14 \
-    --platform any --implementation py -d "$D/dl/$NAME" "$spec" --disable-pip-version-check
+    --platform any --implementation py -d "$D/dl/$NAME" "${req[@]}" --disable-pip-version-check
 done
 for whl in "$D/dl/$NAME"/*.whl; do
   [ -e "$whl" ] || continue
