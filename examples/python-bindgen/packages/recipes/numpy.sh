@@ -22,6 +22,21 @@ numpy.random._sfc64:PyInit__sfc64
 numpy.random._generator:PyInit__generator
 numpy.random.mtrand:PyInit_mtrand
 "
+# mtrand (RandomState) compiles its own copy of distributions.c with
+# NP_RANDOM_LEGACY, where the integer results are long rather than int64_t.
+# Each copy is private to its own extension module on other platforms, but
+# a Worker links both into one module, and wasm32's 32-bit long makes the
+# two random_poisson, random_binomial... different functions: the linker
+# kept one and turned calls of the other signature into traps. mtrand's
+# copy is renamed instead.
+prepare_source() {
+  local h=$SRC/src/numpy/random/src/legacy/mtrand-names.h
+  grep -E '^[A-Za-z].*\brandom_[a-z0-9_]+\(' "$SRC/src/numpy/random/src/distributions/distributions.c" |
+    grep -v '^static' | grep -oE '\brandom_[a-z0-9_]+\(' | tr -d '(' | sort -u |
+    sed 's/.*/#define & mtrand_&/' > "$h"
+  sed -i '' "s|\['-DNP_RANDOM_LEGACY=1'\]|['-DNP_RANDOM_LEGACY=1', '-include', '$h']|" "$SRC/src/numpy/random/meson.build"
+  grep -q "mtrand-names.h" "$SRC/src/numpy/random/meson.build"
+}
 build_native() {
   meson_cross_build "-Dallow-noblas=true -Dblas=none -Dlapack=none -Ddisable-threading=true
     -Ddisable-optimization=true -Ddisable-highway=true -Ddisable-svml=true -Ddisable-intel-sort=true
