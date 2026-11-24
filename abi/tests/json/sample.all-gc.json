@@ -493,6 +493,7 @@
       "module": null,
       "name": "crypto",
       "export": false,
+      "jsName": null,
       "doc": null
     },
     {
@@ -554,6 +555,7 @@
       "module": null,
       "name": "default",
       "export": true,
+      "jsName": null,
       "doc": null
     },
     {
@@ -562,6 +564,7 @@
       "module": null,
       "name": "stats",
       "export": true,
+      "jsName": null,
       "doc": null
     }
   ],
