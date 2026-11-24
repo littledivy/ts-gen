@@ -219,13 +219,35 @@ def check_pillow():
     assert ImageCms.profileToProfile(im, srgb, srgb).size == im.size
 
 
+def check_shapely():
+    import numpy as np
+    import shapely
+    from shapely import wkt
+    from shapely.geometry import Point, Polygon
+    a = Point(0, 0).buffer(1.0)
+    b = Polygon([(0, 0), (2, 0), (2, 2), (0, 2)])
+    assert abs(a.area - 3.1365) < 1e-3 and abs(a.intersection(b).area - 0.7841) < 1e-3
+    assert wkt.loads("POINT (1 2)").equals(Point(1, 2))
+    pts = shapely.points(np.array([[0, 0], [1, 1], [5, 5]]))
+    assert shapely.contains(b, pts).tolist() == [False, True, False]
+    tree = shapely.STRtree(pts)
+    assert tree.query(b, predicate="intersects").tolist() == [0, 1]
+    try:
+        shapely.from_wkt("POINT (1")
+    except shapely.errors.GEOSException:
+        pass  # a GEOS C++ exception, caught and raised in Python
+    else:
+        raise AssertionError("bad WKT parsed")
+    assert shapely.geos_version >= (3, 14, 0)
+
+
 CHECKS = {k[len("check_"):]: v for k, v in sorted(globals().items()) if k.startswith("check_")}
 MODULES = {"multidict": "multidict", "yarl": "yarl", "propcache": "propcache", "frozenlist": "frozenlist",
            "aiohttp": "aiohttp", "msgspec": "msgspec", "xxhash": "xxhash", "regex": "regex",
            "websockets": "websockets", "markupsafe": "markupsafe", "pyyaml": "yaml", "zstandard": "zstandard",
            "cffi": "cffi", "charset_normalizer": "charset_normalizer", "jiter": "jiter", "orjson": "orjson",
            "rpds": "rpds", "uuid_utils": "uuid_utils", "tiktoken": "tiktoken", "cryptography": "cryptography",
-           "numpy": "numpy", "pydantic": "pydantic", "pillow": "PIL"}
+           "numpy": "numpy", "pydantic": "pydantic", "pillow": "PIL", "shapely": "shapely"}
 
 
 def present(name):

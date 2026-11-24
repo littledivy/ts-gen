@@ -13,6 +13,8 @@
 #   DEPENDS   other recipes this one needs, which build.sh links in first
 #   RUST_FEATURES  cargo features for KIND=pyo3
 #   CXX_EH    1 to compile C++ with Wasm exceptions (see eh_cxx)
+#   SDIST_URL, SDIST_SHA256  the sdist's URL and hash, instead of pip
+#             downloading SDIST
 # and for KIND=setuptools (plain C extensions, compiled directly):
 #   EXT_SOURCES  "dotted.module=src/a.c,src/b.c ..." per extension module;
 #                each one is added to the inittab itself
@@ -20,6 +22,7 @@
 #   PY_PACKAGES  package directories in the sdist to copy into site/
 #   CYTHON       .pyx files in the sdist to cythonize first, to .c (or, for
 #                C++ modules, .cpp) beside them
+#   CYTHON_FLAGS extra Cython flags (include paths for its cimports)
 # and, for native kinds, may define `build_native` to override the default.
 #
 # Output goes to deps/pkg/<name>/:
@@ -40,7 +43,7 @@ OUT=$D/pkg/$NAME
 SRC=$D/sdist/$NAME
 export PATH=$HOME/.cargo/bin:$PATH
 
-VERSION= KIND= WHEELS= MODULES= SDIST= LDFLAGS= EXT_SOURCES= EXT_CFLAGS= PY_PACKAGES= CYTHON= DEPENDS= RUST_FEATURES= CXX_EH=
+VERSION= KIND= WHEELS= MODULES= SDIST= SDIST_URL= SDIST_SHA256= LDFLAGS= EXT_SOURCES= EXT_CFLAGS= PY_PACKAGES= CYTHON= CYTHON_FLAGS= DEPENDS= RUST_FEATURES= CXX_EH=
 . "$HERE/recipes/$NAME.sh"
 SDIST=${SDIST:-$NAME==$VERSION}
 
@@ -66,29 +69,51 @@ fetch_tarball() {
   tarball=$D/dl/$(basename "$url")
   [ -f "$tarball" ] || curl -sSfL -o "$tarball" "$url"
   echo "$sum  $tarball" | shasum -a 256 -c --quiet
-  rm -rf "$dir" && mkdir -p "$dir" && tar xzf "$tarball" -C "$dir" --strip-components 1
+  rm -rf "$dir" && mkdir -p "$dir" && tar xf "$tarball" -C "$dir" --strip-components 1
 }
 
 # cmake_lib <src dir> <prefix> [cmake options...]: a CMake C/C++ library a
-# recipe bundles, built static for wasm32-wasip1 with wasi-sdk's toolchain
-# file and installed into <prefix>, once. With SJLJ=1 it is compiled by
-# wasi-sdk 30's clang with setjmp/longjmp over Wasm exceptions (a recipe
-# using it sets CXX_EH=1, so the Worker is linked with them).
+# recipe bundles, built static for wasm32-wasip1 and installed into
+# <prefix>, once. With SJLJ=1, C is compiled with setjmp/longjmp over Wasm
+# exceptions, and with CXX_EH=1 C++ is compiled with Wasm exceptions over
+# libcxx-eh.sh's libc++ (eh_cxx); either way by wasi-sdk 30's clang, so the
+# recipe sets CXX_EH=1 and the Worker is linked with exceptions on.
+# EXTRA_CFLAGS and EXTRA_CXXFLAGS add to the flags.
 cmake_lib() {
   local src=$1 prefix=$2
   shift 2
   [ -f "$src/.built" ] && return
   local flags="-Os -D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS -D_WASI_EMULATED_GETPID -D_WASI_EMULATED_MMAN"
-  local prefix_sdk=$SDK
-  if [ -n "${SJLJ:-}" ]; then
-    flags="$flags --sysroot=$SDK/share/wasi-sysroot $EH_CXXFLAGS -mllvm -wasm-enable-sjlj"
-    prefix_sdk=$SDK30
+  local cc=$SDK/bin/clang cxx=$SDK/bin/clang++ cflags=$flags cxxflags="$flags -fno-exceptions"
+  if [ -n "${SJLJ:-}${CXX_EH:-}" ]; then
+    cc=$SDK30/bin/clang
+    cflags="$flags --sysroot=$SDK/share/wasi-sysroot $EH_CXXFLAGS -mllvm -wasm-enable-sjlj"
   fi
+  if [ -n "${CXX_EH:-}" ]; then
+    mkdir -p "$D/crossbin" && eh_cxx > "$D/crossbin/wasi-eh-clang++" && chmod +x "$D/crossbin/wasi-eh-clang++"
+    cxx=$D/crossbin/wasi-eh-clang++ cxxflags=$flags
+  fi
+  local tc=$src/wasi-toolchain.cmake
+  cat > "$tc" <<CMAKE
+set(CMAKE_SYSTEM_NAME WASI)
+set(CMAKE_SYSTEM_VERSION 1)
+set(CMAKE_SYSTEM_PROCESSOR wasm32)
+set(CMAKE_C_COMPILER $cc)
+set(CMAKE_CXX_COMPILER $cxx)
+set(CMAKE_AR $SDK/bin/llvm-ar)
+set(CMAKE_RANLIB $SDK/bin/llvm-ranlib)
+set(CMAKE_C_COMPILER_TARGET wasm32-wasip1)
+set(CMAKE_CXX_COMPILER_TARGET wasm32-wasip1)
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+CMAKE
   rm -rf "$src/build-wasi"
-  cmake -S "$src" -B "$src/build-wasi" -G Ninja -Wno-dev \
-    -DCMAKE_TOOLCHAIN_FILE="$SDK/share/cmake/wasi-sdk.cmake" -DWASI_SDK_PREFIX="$prefix_sdk" \
+  cmake -S "$src" -B "$src/build-wasi" -G Ninja -Wno-dev -DCMAKE_TOOLCHAIN_FILE="$tc" \
     -DCMAKE_BUILD_TYPE=MinSizeRel -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=OFF \
-    -DCMAKE_C_FLAGS="$flags" -DCMAKE_CXX_FLAGS="$flags -fno-exceptions" \
+    -DCMAKE_C_FLAGS="$cflags ${EXTRA_CFLAGS:-}" -DCMAKE_CXX_FLAGS="$cxxflags ${EXTRA_CXXFLAGS:-}" -DBUILD_TESTING=OFF \
     -DCMAKE_INSTALL_PREFIX="$prefix" -DCMAKE_INSTALL_LIBDIR=lib "$@" >"$src/cmake.log" 2>&1 ||
     { tail -20 "$src/cmake.log" >&2; return 1; }
   ninja -C "$src/build-wasi" -j"$NCPU" install >"$src/ninja.log" 2>&1 ||
@@ -96,9 +121,29 @@ cmake_lib() {
   touch "$src/.built"
 }
 
+# numpy_include: numpy's C headers for a package that builds against its
+# C API (DEPENDS="numpy"): the sdist's include/ plus the headers its Meson
+# build generated. Prints the directory; Cython's `cimport numpy` finds
+# numpy's .pxd files through CYTHON_FLAGS="-I$D/sdist/numpy/src".
+numpy_include() {
+  local inc=$D/numpy-include np=$D/sdist/numpy
+  if [ ! -f "$inc/numpy/_numpyconfig.h" ]; then
+    rm -rf "$inc" && mkdir -p "$inc"
+    cp -R "$np/src/numpy/_core/include/numpy" "$inc/"
+    cp "$np"/build-wasi/numpy/_core/{_numpyconfig.h,__multiarray_api.h,__ufunc_api.h} "$inc/numpy/"
+  fi
+  echo "$inc"
+}
+
 fetch_sdist() {
   mkdir -p "$SRC"
   if [ ! -f "$SRC/src/.unpacked" ]; then
+    # SDIST_URL and SDIST_SHA256 pin the sdist itself; pip can't fetch one
+    # whose metadata step needs the target's libraries (shapely's GEOS).
+    if [ -n "$SDIST_URL" ]; then
+      [ -f "$SRC/$(basename "$SDIST_URL")" ] || curl -sSfL -o "$SRC/$(basename "$SDIST_URL")" "$SDIST_URL"
+      echo "$SDIST_SHA256  $SRC/$(basename "$SDIST_URL")" | shasum -a 256 -c --quiet
+    fi
     ls "$SRC"/*.tar.gz >/dev/null 2>&1 ||
       "$VENV/bin/pip" download -q --no-deps --no-binary=:all: -d "$SRC" "$SDIST" --disable-pip-version-check
     local tarball
@@ -109,9 +154,9 @@ fetch_sdist() {
     for pyx in $CYTHON; do
       # A module declaring `distutils: language = c++` becomes a .cpp.
       if grep -q '^# *distutils: *language *= *c++' "$SRC/src/$pyx"; then
-        (cd "$SRC/src" && "$VENV/bin/cython" -3 --cplus -X embedsignature=True "$pyx" -o "${pyx%.pyx}.cpp")
+        (cd "$SRC/src" && "$VENV/bin/cython" -3 --cplus -X embedsignature=True $CYTHON_FLAGS "$pyx" -o "${pyx%.pyx}.cpp")
       else
-        (cd "$SRC/src" && "$VENV/bin/cython" -3 -X embedsignature=True "$pyx" -o "${pyx%.pyx}.c")
+        (cd "$SRC/src" && "$VENV/bin/cython" -3 -X embedsignature=True $CYTHON_FLAGS "$pyx" -o "${pyx%.pyx}.c")
       fi
     done
     touch "$SRC/src/.unpacked"
