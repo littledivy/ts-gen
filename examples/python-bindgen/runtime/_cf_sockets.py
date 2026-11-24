@@ -1,7 +1,7 @@
 """The socket module over cloudflare:sockets, as Python Workers provide it.
 
-patch() replaces socket.socket and socket.getaddrinfo, and adds
-socket.gethostbyname, which WASI lacks: a socket is a TCP
+patch() replaces socket.socket and the resolver calls, as Pyodide's
+(Emscripten's) socket module has them, and its constants: a socket is a TCP
 connection made with cloudflare:sockets' connect(), opened with
 secureTransport "starttls" so that ssl's wrap_socket can upgrade it with
 startTls(). Blocking calls suspend the instance until the JS promise settles;
@@ -20,6 +20,8 @@ _connect = []  # cloudflare:sockets' connect, once imported
 
 
 def _js_connect(host, port):
+    # An address the resolver made up connects to the name it stands for.
+    host = _names.get(host, host)
     if not _connect:
         _connect.append(_cfjs.getattr(_cfjs.import_module("cloudflare:sockets"), "connect"))
     address = _cfjs.new_object()
@@ -41,7 +43,11 @@ def _error(e, host, port):
 class socket:
     """A TCP socket over cloudflare:sockets."""
 
-    def __init__(self, family=_std.AF_INET, type=_std.SOCK_STREAM, proto=0, fileno=None):
+    def __init__(self, family=-1, type=-1, proto=0, fileno=None):
+        if family == -1:
+            family = _std.AF_INET
+        if type == -1:
+            type = _std.SOCK_STREAM
         if type == getattr(_std, "SOCK_DGRAM", None):
             raise OSError(errno.EPROTONOSUPPORT, "only TCP (SOCK_STREAM) sockets are supported")
         self.family = _std.AddressFamily(family) if family else _std.AF_INET
@@ -258,29 +264,137 @@ def _block(aw, timeout=None):
         raise _std.timeout("timed out") from None
 
 
-def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-    # cloudflare:sockets resolves the name itself when it connects.
-    if isinstance(host, bytes):
-        host = host.decode()
-    if isinstance(port, str):
-        port = int(port) if port.isdigit() else {"http": 80, "https": 443}[port]
-    return [(_std.AF_INET, _std.SOCK_STREAM, _std.IPPROTO_TCP, "", (host, port))]
+# The resolver, as Emscripten's (Pyodide's): there is no DNS, so a name
+# gets a made-up address, 172.29.<n>.0 for the n-th name looked up, which
+# connecting maps back to the name (cloudflare:sockets resolves it then).
+_addrs = {}  # name -> made-up address
+_names = {}  # made-up address -> name
+_next_addr = [0]
 
 
-def gethostbyname(host):
-    # WASI's socket module has none. There is no resolver to ask: an IPv4
-    # literal is its own address, and a name fails as unresolvable (Pyodide
-    # gives a placeholder address that no connection reaches). Callers such as
-    # urllib's FTP handler turn the OSError into their own error.
+def _is_ipv4(host):
     import ipaddress
 
     try:
-        return str(ipaddress.IPv4Address(host))
+        ipaddress.IPv4Address(host)
     except ValueError:
-        raise _std.gaierror(getattr(_std, "EAI_NONAME", -2), "Name or service not known") from None
+        return False
+    return True
+
+
+def _lookup(name):
+    if _is_ipv4(name):
+        return name
+    addr = _addrs.get(name)
+    if addr is None:
+        _next_addr[0] += 1
+        n = _next_addr[0]
+        # Emscripten's spelling, which for n > 255 isn't a dotted quad.
+        addr = f"172.29.{n & 0xFF}.{n & 0xFF00}"
+        _addrs[name] = addr
+        _names[addr] = name
+    return addr
+
+
+def _host(host):
+    if isinstance(host, (bytes, bytearray)):
+        host = bytes(host).decode()
+    if not isinstance(host, str):
+        raise TypeError(f"str, bytes or bytearray expected, not {type(host).__name__}")
+    return host
+
+
+def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    if isinstance(port, (bytes, bytearray)):
+        port = bytes(port).decode()
+    if isinstance(port, str):
+        if port.isdigit():
+            port = int(port)
+        else:
+            try:
+                port = getservbyname(port)
+            except OSError:
+                raise _std.gaierror(getattr(_std, "EAI_SERVICE", -8), "Servname not supported for ai_socktype") from None
+    if port is None:
+        port = 0
+    if host is None:
+        addr = "0.0.0.0" if flags & getattr(_std, "AI_PASSIVE", 1) else "127.0.0.1"
+    else:
+        addr = _lookup(_host(host))
+    return [(_std.AF_INET, _std.SOCK_STREAM, _std.IPPROTO_TCP, "", (addr, port))]
+
+
+def getservbyname(name, proto=None):
+    ports = {"http": 80, "https": 443, "ftp": 21, "ssh": 22, "smtp": 25, "domain": 53, "imap": 143, "imaps": 993,
+             "pop3": 110, "pop3s": 995, "smtps": 465, "submission": 587}
+    if name not in ports:
+        raise OSError("service/proto not found")
+    return ports[name]
+
+
+def gethostbyname(host):
+    return _lookup(_host(host))
+
+
+def gethostbyname_ex(host):
+    host = _host(host)
+    return (host, [host], [_lookup(host)])
+
+
+def gethostbyaddr(addr):
+    addr = _host(addr)
+    if not _is_ipv4(addr):
+        raise _std.herror(1, "Unknown host")
+    return gethostbyname_ex(_names.get(addr, addr))
+
+
+def gethostname():
+    return "emscripten"
+
+
+def getnameinfo(sockaddr, flags):
+    host, port = sockaddr[0], sockaddr[1]
+    return (_names.get(host, host), str(port))
+
+
+# Emscripten's values, which Pyodide's socket module has: WASI numbers
+# address families and socket types differently.
+_FAMILIES = {"AF_UNSPEC": 0, "AF_UNIX": 1, "AF_INET": 2, "AF_INET6": 10}
+_KINDS = {"SOCK_STREAM": 1, "SOCK_DGRAM": 2, "SOCK_RAW": 3, "SOCK_SEQPACKET": 5}
+
+
+def _constants(module):
+    import enum
+
+    wasi = {name: getattr(module, name) for name in _FAMILIES if hasattr(module, name)}
+    module.AddressFamily = enum.IntEnum("AddressFamily", _FAMILIES, module="socket")
+    module.SocketKind = enum.IntEnum("SocketKind", _KINDS, module="socket")
+    for name in _FAMILIES:
+        setattr(module, name, module.AddressFamily[name])
+    for name in _KINDS:
+        setattr(module, name, module.SocketKind[name])
+    # The C functions taking a family still want WASI's numbers.
+    to_wasi = {_FAMILIES[name]: v for name, v in wasi.items()}
+    inet_pton, inet_ntop = module.inet_pton, module.inet_ntop
+
+    def pton(family, ip):
+        return inet_pton(to_wasi.get(family, family), ip)
+
+    def ntop(family, packed):
+        return inet_ntop(to_wasi.get(family, family), packed)
+
+    pton.__name__, ntop.__name__ = "inet_pton", "inet_ntop"
+    module.inet_pton, module.inet_ntop = pton, ntop
+    module.has_ipv6 = False
 
 
 def patch(module):
+    _constants(module)
     module.socket = module.SocketType = socket
     module.getaddrinfo = getaddrinfo
     module.gethostbyname = gethostbyname
+    module.gethostbyname_ex = gethostbyname_ex
+    module.gethostbyaddr = gethostbyaddr
+    module.gethostname = gethostname
+    module.getnameinfo = getnameinfo
+    module.getservbyname = getservbyname
