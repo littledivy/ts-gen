@@ -1,0 +1,20 @@
+// Declarations the Swift runtime (Runtime.swift) needs for Codable,
+// appended to the IR ts-gen writes. They name no Workers API.
+
+/// Swift runtime: a JS value classified by the bridge (Codable decoding).
+enum TsgenValue {
+  List(arr<Any?>);
+  Bool(bool);
+  Num(f64);
+  Str(str);
+  Obj(Any);
+}
+/// Swift runtime: plain objects for Codable encoding and decoding.
+interface TsgenObject {
+  @js(object)
+  new();
+  @js(index)
+  at(key: str): TsgenValue?;
+  @js(index)
+  setAt(key: str, value: Any?);
+}
