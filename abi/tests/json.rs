@@ -211,3 +211,29 @@ fn box_nested_warns_under_box_none_null() {
     let p = Profile::parse("box-none = unit").unwrap();
     assert!(!json::lower(&ir, &p).pretty().contains("\"warnings\""));
 }
+
+/// A future of a type parameter takes and resolves through the operations
+/// on its erasure: a type parameter names nothing in a protocol key.
+#[test]
+fn erased_future_ops() {
+    let ir = text::parse(
+        "ir 1;\n\nclass Result<T> {}\n\nclass Kv<V> {\n  get<T>(key: str): future<T?>;\n  all<T>(): future<Result<T>>;\n  each(): future<arr<V>>;\n  text(): future<str>;\n}\n",
+    )
+    .unwrap();
+    let out = json::lower(&ir, &Profile::all_linear()).pretty();
+    check(&out);
+    for name in [
+        "take<Any?>",
+        "resolve<Any?>",
+        "take<Result<Any>>",
+        "take<arr<Any>>",
+        "take<str>",
+    ] {
+        assert!(
+            out.contains(&format!("\"name\": \"{name}\"")),
+            "{name}:\n{out}"
+        );
+    }
+    assert!(!out.contains("take<T"), "{out}");
+    assert!(!out.contains("take<arr<V>>"), "{out}");
+}
