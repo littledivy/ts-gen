@@ -1,0 +1,37 @@
+== GET /
+Hello from Swift on workerd!
+routes: /echo /url /json /crypto /timers /rewrite /errors /fetch /counter
+
+== POST /echo
+POST with x-swift: hi, body: Hello!
+
+== GET /url?tag=a&tag=b&q=swift
+path /url, q = swift, tags = a,b
+
+== POST /json
+2 x tea (hot, green)
+
+== POST /json (not an order)
+not an order: no quantity
+
+== GET /crypto
+a UUID of 36 characters, version 4
+
+== GET /timers
+done: 10 ms, then 30 ms
+
+== GET /rewrite
+2 links: <a href="/x" data-n="1">x</a><a href="/y" data-n="2">y</a>
+
+== GET /errors
+atob: DOMException: atob() called with invalid b
+URL: TypeError: Invalid URL string.
+
+== GET /fetch
+200: GET /hello, from the backend
+
+== GET /counter
+count 1, 1 rows
+
+== GET /counter (again)
+count 2, 2 rows

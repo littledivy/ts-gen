@@ -1,0 +1,25 @@
+== GET /
+Hello from Swift on node!
+routes: /echo /url /json /crypto /timers /rewrite /errors /fetch /counter
+
+== POST /echo
+POST with x-swift: hi, body: Hello!
+
+== GET /url?tag=a&tag=b&q=swift
+path /url, q = swift, tags = a,b
+
+== POST /json
+2 x tea (hot, green)
+
+== POST /json (not an order)
+not an order: no quantity
+
+== GET /crypto
+a UUID of 36 characters, version 4
+
+== GET /timers
+done: 10 ms, then 30 ms
+
+== GET /errors
+atob: DOMException: Invalid character
+URL: TypeError: Invalid URL
