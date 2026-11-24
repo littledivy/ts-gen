@@ -32,6 +32,24 @@ from pathlib import Path
 
 import pytest
 
+
+def _port(host):
+    """A free port: from SDK_TESTS_PORTS ("first-last") if set, else any."""
+    span = os.environ.get("SDK_TESTS_PORTS")
+    if not span:
+        return host.get_free_port()
+    import socket
+
+    first, last = (int(p) for p in span.split("-"))
+    for port in range(first, last + 1):
+        with socket.socket() as sock:
+            try:
+                sock.bind(("127.0.0.1", port))
+            except OSError:
+                continue
+        return port
+    raise RuntimeError(f"no free port in {span}")
+
 HERE = Path(__file__).resolve().parent
 PYDIR = HERE.parent  # examples/python-bindgen
 sys.path.insert(0, str(PYDIR / "packages"))
@@ -202,7 +220,7 @@ def _run_dev_server(target, tmp_path, env, *, startup_timeout):
         config["assets"]["directory"] = str((target / config["assets"]["directory"]).resolve())
     cfg = out / "wrangler.json"
     cfg.write_text(json.dumps(config, indent=2))
-    port = host.get_free_port()
+    port = _port(host)
     base_url = f"http://127.0.0.1:{port}"
     log_path = Path(tmp_path) / f"{target.name}-dev.log"
     with log_path.open("w") as log_file:
