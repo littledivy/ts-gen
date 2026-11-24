@@ -381,8 +381,9 @@ impl<'a, 'b> Glue<'a, 'b> {
         path: &[String],
         member: fn(&str, &str) -> String,
     ) -> Result<String> {
+        let js = self.js_segments(module, path);
         let first = match module {
-            None => prop("globalThis", &path[0]),
+            None => prop("globalThis", &js[0]),
             Some(spec) => {
                 let exports = self.module_exports(spec);
                 let Some(e) = exports.iter().find(|e| e.name == path[0]) else {
@@ -396,7 +397,49 @@ impl<'a, 'b> Glue<'a, 'b> {
                 prop(&m, e.alias.as_deref().unwrap_or(&e.name))
             }
         };
-        Ok(path[1..].iter().fold(first, |b, s| member(&b, s)))
+        Ok(js[1..].iter().fold(first, |b, s| member(&b, s)))
+    }
+
+    /// The path's segments as JS names them: a namespace or class renamed
+    /// with `@js(name = ...)` is reached by its JS name (§5).
+    fn js_segments(&self, module: Option<&str>, path: &[String]) -> Vec<String> {
+        let roots: Vec<&[Decl]> = std::iter::once(self.ir)
+            .chain(self.libs.iter().copied())
+            .flat_map(|ir| match module {
+                None => vec![ir.items.as_slice()],
+                Some(spec) => ir
+                    .items
+                    .iter()
+                    .filter_map(|d| match d {
+                        Decl::Module(m) if m.spec == spec => Some(m.items.as_slice()),
+                        _ => None,
+                    })
+                    .collect(),
+            })
+            .collect();
+        let mut scopes = roots;
+        let mut out = Vec::with_capacity(path.len());
+        for seg in path {
+            let found = scopes
+                .iter()
+                .flat_map(|items| items.iter())
+                .find(|d| d.name().is_some_and(|n| n == seg));
+            out.push(
+                found
+                    .and_then(|d| d.meta().attrs.js.rename())
+                    .unwrap_or(seg)
+                    .to_string(),
+            );
+            scopes = scopes
+                .iter()
+                .flat_map(|items| items.iter())
+                .filter_map(|d| match d {
+                    Decl::Namespace(n) if &n.name == seg => Some(n.items.as_slice()),
+                    _ => None,
+                })
+                .collect();
+        }
+        out
     }
 
     /// The variable holding the value a class check tests against, named in

@@ -46,6 +46,12 @@ add(a: i32, b: i32): i32;
 namespace math {
   @js(name = "max") biggest(a: f64, b: f64): f64;
 }
+// A namespace JS names differently: its members are reached through
+// globalThis.Math.
+@js(name = "Math")
+namespace jsMath {
+  min(a: f64, b: f64): f64;
+}
 
 module "./host.mjs" {
   class Point {

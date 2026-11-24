@@ -832,35 +832,42 @@ function $f33(w0_0, w1_0) {
   return t1;
 }
 
-// ("./host.mjs", "Point.new(f64,f64)")
+// ("tw:js/global", "jsMath.min(f64,f64)")
 function $f34(w0_0, w1_0) {
+  const r = globalThis.Math.min(w0_0, w1_0);
+  const t1 = $num(r, "f64");
+  return t1;
+}
+
+// ("./host.mjs", "Point.new(f64,f64)")
+function $f35(w0_0, w1_0) {
   const r = new $m0.Point(w0_0, w1_0);
   return r;
 }
 
 // ("./host.mjs", "Point#get:x()")
-function $f35(w0_0) {
+function $f36(w0_0) {
   const r = w0_0.x;
   const t1 = $num(r, "f64");
   return t1;
 }
 
 // ("./host.mjs", "Point.origin()")
-function $f36() {
+function $f37() {
   const r = $m0.Point.origin();
   const t1 = $instance(r, $cls2, "\"./host.mjs\".Point");
   return t1;
 }
 
 // ("./host.mjs", "Point#norm()")
-function $f37(w0_0) {
+function $f38(w0_0) {
   const r = w0_0.norm();
   const t1 = $num(r, "f64");
   return t1;
 }
 
 // ("./host.mjs", "Hidden#get:secret()")
-function $f38(w0_0) {
+function $f39(w0_0) {
   const cx = $cx;
   const cxm = cx.n;
   try {
@@ -880,7 +887,7 @@ function $f38(w0_0) {
 }
 
 // ("./host.mjs", "hidden()")
-function $f39() {
+function $f40() {
   const r = $m0.makeHidden();
   const t1 = $some(r, "\"./host.mjs\".Hidden");
   return t1;
@@ -892,7 +899,7 @@ export function instantiate(language, bridge, imports = {}) {
   $cls1 = $class(globalThis.Bag);
   $cls2 = $class($m0.Point);
   $B = new WebAssembly.Instance(bridge, {
-    "tw:glue": { r6: $f6, r7: $f7, r12: $f12, r14: $f14, r15: $f15, r16: $f16, r17: $f17, r18: $f18, r19: $f19, r21: $f21, r28: $f28, r29: $f29, r30: $f30, r38: $f38 },
+    "tw:glue": { r6: $f6, r7: $f7, r12: $f12, r14: $f14, r15: $f15, r16: $f16, r17: $f17, r18: $f18, r19: $f19, r21: $f21, r28: $f28, r29: $f29, r30: $f30, r39: $f39 },
   }).exports;
   $S = new $Scratch($B);
   const instance = new WebAssembly.Instance(language, {
@@ -932,14 +939,15 @@ export function instantiate(language, bridge, imports = {}) {
       "set:version(str)": $f31,
       "add(i32,i32)": $f32,
       "math.biggest(f64,f64)": $f33,
+      "jsMath.min(f64,f64)": $f34,
     },
     "./host.mjs": {
-      "Point.new(f64,f64)": $f34,
-      "Point#get:x()": $f35,
-      "Point.origin()": $f36,
-      "Point#norm()": $f37,
-      "Hidden#get:secret()": $B.f38,
-      "hidden()": $f39,
+      "Point.new(f64,f64)": $f35,
+      "Point#get:x()": $f36,
+      "Point.origin()": $f37,
+      "Point#norm()": $f38,
+      "Hidden#get:secret()": $B.f39,
+      "hidden()": $f40,
     },
   });
   $X = instance.exports;

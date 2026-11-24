@@ -168,6 +168,7 @@ assert.equal(L.call("add(i32,i32)", 2, 3), 5);
 globalThis.add = (a, b) => a * b;
 assert.equal(L.call("add(i32,i32)", 2, 3), 6);
 assert.equal(L.call("math.biggest(f64,f64)", 2, 3), 3);
+assert.equal(L.call("jsMath.min(f64,f64)", 2, 3), 2);
 
 // Module declarations, through their exports.
 {
