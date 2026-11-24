@@ -69,6 +69,33 @@ fetch_tarball() {
   rm -rf "$dir" && mkdir -p "$dir" && tar xzf "$tarball" -C "$dir" --strip-components 1
 }
 
+# cmake_lib <src dir> <prefix> [cmake options...]: a CMake C/C++ library a
+# recipe bundles, built static for wasm32-wasip1 with wasi-sdk's toolchain
+# file and installed into <prefix>, once. With SJLJ=1 it is compiled by
+# wasi-sdk 30's clang with setjmp/longjmp over Wasm exceptions (a recipe
+# using it sets CXX_EH=1, so the Worker is linked with them).
+cmake_lib() {
+  local src=$1 prefix=$2
+  shift 2
+  [ -f "$src/.built" ] && return
+  local flags="-Os -D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS -D_WASI_EMULATED_GETPID -D_WASI_EMULATED_MMAN"
+  local prefix_sdk=$SDK
+  if [ -n "${SJLJ:-}" ]; then
+    flags="$flags --sysroot=$SDK/share/wasi-sysroot $EH_CXXFLAGS -mllvm -wasm-enable-sjlj"
+    prefix_sdk=$SDK30
+  fi
+  rm -rf "$src/build-wasi"
+  cmake -S "$src" -B "$src/build-wasi" -G Ninja -Wno-dev \
+    -DCMAKE_TOOLCHAIN_FILE="$SDK/share/cmake/wasi-sdk.cmake" -DWASI_SDK_PREFIX="$prefix_sdk" \
+    -DCMAKE_BUILD_TYPE=MinSizeRel -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=OFF \
+    -DCMAKE_C_FLAGS="$flags" -DCMAKE_CXX_FLAGS="$flags -fno-exceptions" \
+    -DCMAKE_INSTALL_PREFIX="$prefix" -DCMAKE_INSTALL_LIBDIR=lib "$@" >"$src/cmake.log" 2>&1 ||
+    { tail -20 "$src/cmake.log" >&2; return 1; }
+  ninja -C "$src/build-wasi" -j"$NCPU" install >"$src/ninja.log" 2>&1 ||
+    { grep -m5 -B2 -A3 "error" "$src/ninja.log" >&2; return 1; }
+  touch "$src/.built"
+}
+
 fetch_sdist() {
   mkdir -p "$SRC"
   if [ ! -f "$SRC/src/.unpacked" ]; then

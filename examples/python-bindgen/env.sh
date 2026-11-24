@@ -18,4 +18,4 @@ case "$(uname -s)-$(uname -m)" in
 esac
 HOSTPY=${HOSTPY:-$(command -v python3.13 || true)}
 [ -n "$HOSTPY" ] || { echo "python3.13 not found: set HOSTPY" >&2; exit 1; }
-NCPU=$(sysctl -n hw.ncpu 2>/dev/null || nproc)
+NCPU=${NCPU:-$(sysctl -n hw.ncpu 2>/dev/null || nproc)}

@@ -199,13 +199,33 @@ def check_numpy():
     assert list(np.unique(np.array([3, 1, 3, 2]), sorted=False)) in ([3, 1, 2], [1, 2, 3], [1, 3, 2], [2, 3, 1], [3, 2, 1], [2, 1, 3])
 
 
+def check_pillow():
+    import io
+    from PIL import Image, ImageCms, ImageDraw, ImageFilter, ImageFont, features
+    im = Image.new("RGB", (32, 24), "white")
+    ImageDraw.Draw(im).rectangle((4, 4, 20, 16), fill=(200, 10, 30))
+    im = im.filter(ImageFilter.GaussianBlur(1)).rotate(15, expand=True)
+    for fmt in ("PNG", "JPEG", "WEBP", "GIF", "BMP"):
+        buf = io.BytesIO()
+        im.save(buf, fmt)
+        back = Image.open(io.BytesIO(buf.getvalue()))
+        back.load()
+        assert back.size == im.size, fmt
+    for f in ("jpg", "webp", "zlib", "freetype2", "littlecms2"):
+        assert features.check(f), f
+    font = ImageFont.load_default(size=12)  # FreeType, over Pillow's embedded font
+    assert font.getbbox("Hi")[2] > 0
+    srgb = ImageCms.createProfile("sRGB")
+    assert ImageCms.profileToProfile(im, srgb, srgb).size == im.size
+
+
 CHECKS = {k[len("check_"):]: v for k, v in sorted(globals().items()) if k.startswith("check_")}
 MODULES = {"multidict": "multidict", "yarl": "yarl", "propcache": "propcache", "frozenlist": "frozenlist",
            "aiohttp": "aiohttp", "msgspec": "msgspec", "xxhash": "xxhash", "regex": "regex",
            "websockets": "websockets", "markupsafe": "markupsafe", "pyyaml": "yaml", "zstandard": "zstandard",
            "cffi": "cffi", "charset_normalizer": "charset_normalizer", "jiter": "jiter", "orjson": "orjson",
            "rpds": "rpds", "uuid_utils": "uuid_utils", "tiktoken": "tiktoken", "cryptography": "cryptography",
-           "numpy": "numpy", "pydantic": "pydantic"}
+           "numpy": "numpy", "pydantic": "pydantic", "pillow": "PIL"}
 
 
 def present(name):
