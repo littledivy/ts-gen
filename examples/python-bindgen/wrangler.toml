@@ -1,0 +1,37 @@
+# The spec Worker's bindings, local in `wrangler dev`.
+name = "python-worker"
+main = "out/entry.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+GREETING = "Hello"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "local-kv"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "local-bucket"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "local-db"
+database_id = "00000000-0000-0000-0000-000000000000"
+
+[[durable_objects.bindings]]
+name = "COUNTER"
+class_name = "Counter"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Counter"]
+
+[[queues.producers]]
+binding = "QUEUE"
+queue = "local-queue"
+
+[[services]]
+binding = "SELF"
+service = "python-worker"

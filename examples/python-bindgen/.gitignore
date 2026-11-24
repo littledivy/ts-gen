@@ -1,0 +1,7 @@
+# Build outputs and caches.
+/deps
+/node_modules
+/out*/
+/gen/
+.wrangler/
+packages/*/out/

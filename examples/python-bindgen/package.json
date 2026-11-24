@@ -1,0 +1,10 @@
+{
+  "name": "python-bindgen-example",
+  "private": true,
+  "type": "module",
+  "description": "The tools the Python Worker's builds and tests run: wrangler, its workerd, and esbuild",
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "wrangler": "^4.166.0"
+  }
+}
