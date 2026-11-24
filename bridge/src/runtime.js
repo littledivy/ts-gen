@@ -886,6 +886,26 @@ function $rejected(e) {
   return new $Future(Promise.reject(e), null, null);
 }
 
+// Suspends the language until waker `w`'s wake (§16, JSPI).
+function $wait(w) {
+  if ($waits.has(w)) throw new TypeError(`waker ${w} is already waited on`);
+  return new Promise((r) => $waits.set(w, r));
+}
+
+// An export returning a future, called through JSPI (§16): the call may
+// suspend, so its future settles as the call's promise does.
+function $promising(f) {
+  const g = WebAssembly.promising(f);
+  return (...a) =>
+    new $Future(
+      g(...a).then($promise, (e) => {
+        throw $outgoing(e);
+      }),
+      null,
+      null,
+    );
+}
+
 function $promise(v) {
   return v instanceof $Future ? v.promise : v;
 }

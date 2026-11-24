@@ -43,6 +43,8 @@ pub enum Op<'a> {
     CallFn,
     /// `("tw:future", ...)` (§16).
     Poll,
+    /// `wait`, under `jspi = on`: a `WebAssembly.Suspending` import.
+    Wait,
     Take(Option<Repr>),
     FutureError(Rc<EnumLayout>),
     FutureDrop,
@@ -72,6 +74,7 @@ impl Op<'_> {
                 | Op::IsUndefined
                 | Op::Constant(_)
                 | Op::Poll
+                | Op::Wait
                 | Op::FutureDrop
                 | Op::FutureNew
                 | Op::WorkAvailable
@@ -302,6 +305,13 @@ impl<'a> Plan<'a> {
                 };
                 match i.name.as_str() {
                     "poll" => (Op::Poll, empty),
+                    "wait" if p.jspi => (Op::Wait, empty),
+                    "wait" => {
+                        return Err(Error::Import(format!(
+                            "{}: `wait` needs `jspi = on`",
+                            what()
+                        )));
+                    }
                     "drop" => (Op::FutureDrop, empty),
                     "new" => (Op::FutureNew, empty),
                     _ => {

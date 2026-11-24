@@ -2080,6 +2080,7 @@ impl<'a> Layouts<'a> {
             (Some(tw::UNIT | tw::TRUE | tw::FALSE), "") => f(vec![], vec![EXTERNREF]),
             (Some(tw::FUTURE), "poll") => f(vec![EXTERNREF, I32], vec![I32]),
             (Some(tw::FUTURE), "drop") => f(vec![EXTERNREF], vec![]),
+            (Some(tw::FUTURE), "wait") if self.profile.jspi => f(vec![I32], vec![]),
             (Some(tw::FUTURE), "new") => f(vec![], vec![EXTERNREF, EXTERNREF]),
             (Some(tw::LOOP), "work_available" | "drop") => f(vec![I32], vec![]),
             (None, tw::REALLOC) => {

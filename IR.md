@@ -1299,6 +1299,7 @@ generator. The IR is unchanged by it.
 | exported-class finalizers | on \| off |
 | `results` | `multi` (default) \| `single` |
 | `throws` | `tag` (default) \| `js` (§15) |
+| `jspi` | off (default) \| on: the language may suspend in `tw:future wait` (§16) |
 | protocol names | defaults (§19), each overridable |
 
 Presets:
@@ -1916,8 +1917,8 @@ class Kv {
   rejection enum. `future<T>` is `future<T, err>`. `future<never>` only
   rejects (§3).
 * A future is an `externref` (a JS Promise).
-* There's no async syntax and no JSPI. Languages treat functions that
-  return a `future` as async on their own.
+* There's no async syntax. Languages treat functions that return a
+  `future` as async on their own, or block on futures under JSPI (below).
 * **Folding:** without `throws`, every synchronous exception (validation or
   host) becomes the future's rejection (WebIDL's rule). With `throws`,
   synchronous throws go to the tag.
@@ -1958,6 +1959,29 @@ interleaving of macrotasks.
 * Multiple bridges and loops coexist in one JS event loop: all state is per
   instance, with no globals.
 
+### JSPI (`jspi = on`)
+
+A language with no async of its own (one whose coroutines run on a
+synchronous executor) blocks instead: it suspends its whole stack until a
+future settles. Under `jspi = on`:
+
+* The bridge provides `("tw:future", "wait")(waker)`, a
+  `WebAssembly.Suspending` import. It suspends the language until that
+  waker's next wake, which it consumes: the bridge resumes the wait instead
+  of calling `tw:future/wake`. A wake no wait holds still calls
+  `tw:future/wake`.
+* The language polls the futures it awaits with a waker, waits on it, and
+  polls again once resumed. A settlement between the poll and the wait
+  can't be missed: promise callbacks only run once the language has
+  suspended.
+* Two waits can't hold one waker at once; the second throws a `TypeError`.
+* The bridge calls an export or callback returning a `future` through
+  `WebAssembly.promising`. Only those may wait: any other entry has no
+  suspendable stack, and its wait traps. The JS result is the promise of
+  the call's own future, and an error escaping the call rejects it.
+* An export returning a future through the bridge module (a GC position),
+  the spill or `throws = js` is unsupported under `jspi = on`.
+
 ### Future operations (bridge imports, group `tw:future`)
 
 | name | signature | meaning |
@@ -1966,6 +1990,7 @@ interleaving of macrotasks.
 | `take<T>` | `(externref f) -> T wire` | the resolved value; consumes the future, once |
 | `error<E>` | `(externref f) -> E wire` | the rejection, mapped through `E` as in §15 |
 | `drop` | `(externref f)` | drops the future, which **cancels** it |
+| `wait` | `(i32 waker)` | `jspi = on`: suspends until the waker's wake |
 | `new` | `() -> (externref future, externref resolver)` | a language-created future; JS sees a Promise |
 | `resolve<T>` | `(externref resolver, T wire)` | |
 | `reject<E>` | `(externref resolver, E wire)` | the JS rejection value is the outgoing mapping of `E` |
@@ -2226,6 +2251,7 @@ Notation in the tables:
 | `tw:future` | `take<T>` | `(externref) -> W(T)` | |
 | `tw:future` | `error<E>` | `(externref) -> W(E)` | |
 | `tw:future` | `drop` | `(externref)` | cancels |
+| `tw:future` | `wait` | `(i32 waker)` | `jspi = on`; suspending |
 | `tw:future` | `new` | `() -> (externref, externref)` | future, resolver |
 | `tw:future` | `resolve<T>` | `(externref, W(T))` | |
 | `tw:future` | `reject<E>` | `(externref, W(E))` | |
@@ -2403,7 +2429,6 @@ Deferred, and not part of this version:
 * multiple memories, and table64;
 * tagged unions (`@js(when)`);
 * JS-side cancellation of language-created futures;
-* JSPI;
 * custom descriptors for exported classes;
 * language-built GC scalar boxes as an optional fast path (`tw:unbox` would
   accept them);

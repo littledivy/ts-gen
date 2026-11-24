@@ -183,6 +183,11 @@ pub fn future_drop() -> Import {
     Import::new(FUTURE, "drop")
 }
 
+/// `(i32 waker)`, under `jspi = on`: suspends until that waker's wake.
+pub fn future_wait() -> Import {
+    Import::new(FUTURE, "wait")
+}
+
 pub fn future_new() -> Import {
     Import::new(FUTURE, "new")
 }

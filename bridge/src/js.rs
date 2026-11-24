@@ -2067,6 +2067,10 @@ impl<'a, 'b> Glue<'a, 'b> {
                 b.line("return $poll(f, w);");
                 return Ok(b.finish(&format!("function {name}(f, w)")));
             }
+            Op::Wait => {
+                b.line("return $wait(w);");
+                return Ok(b.finish(&format!("function {name}(w)")));
+            }
             Op::FutureDrop => {
                 b.line("$dropFuture(f);");
                 return Ok(b.finish(&format!("function {name}(f)")));

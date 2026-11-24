@@ -231,6 +231,8 @@ pub fn generate_opts(
             body.push_str("  return r[0];\n}");
             funcs.push(body);
             format!("{name}$s")
+        } else if matches!(func.op, plan::Op::Wait) {
+            format!("new WebAssembly.Suspending({name})")
         } else {
             name.clone()
         };
@@ -260,11 +262,28 @@ pub fn generate_opts(
         let pending = profile.throws == Throws::Js && sig.throws.is_some();
         // A GC entry drains the spill in the bridge module.
         let takes = if gc { Vec::new() } else { spill };
+        // Under JSPI an entry returning a future may suspend (§16).
+        let promising = profile.jspi
+            && sig.results.first().is_some_and(|r| {
+                matches!(
+                    r.repr.kind,
+                    ts_gen_abi::layout::Kind::Host {
+                        of: ts_gen_abi::layout::Host::Future { .. },
+                        ..
+                    }
+                )
+            });
+        if promising && (slot.is_some() || !takes.is_empty() || pending) {
+            return unsupported(format!(
+                "`{key}`: under `jspi = on`, an export returning a future through the bridge module, the spill or `throws = js`"
+            ));
+        }
         entries.push(Entry {
             key: key.clone(),
             slot,
             takes,
             pending,
+            promising,
         });
     }
     // The language exports driving futures and loops (§16).
@@ -335,9 +354,24 @@ pub fn generate_opts(
         };
         let _ = writeln!(js, "function $live() {{\n  {live}\n}}");
     }
+    let waits = plan.funcs.iter().any(|f| matches!(f.op, plan::Op::Wait));
+    if waits {
+        let _ = writeln!(
+            js,
+            "// The language's waits under JSPI (§16), by waker: each resolves at\n// its waker's wake, which then skips `tw:future/wake`.\nconst $waits = new Map();"
+        );
+    }
     if polls {
         let wake = prop("$X", profile.name(protocol::FUTURE_WAKE));
-        let _ = writeln!(js, "function $wake(w) {{\n  if ($live()) {wake}(w);\n}}");
+        let resume = if waits {
+            "  const r = $waits.get(w);\n  if (r !== undefined) {\n    $waits.delete(w);\n    r();\n    return;\n  }\n"
+        } else {
+            ""
+        };
+        let _ = writeln!(
+            js,
+            "function $wake(w) {{\n{resume}  if ($live()) {wake}(w);\n}}"
+        );
     }
     if g.loops {
         let _ = writeln!(
@@ -626,6 +660,8 @@ struct Entry {
     takes: Vec<ts_gen_abi::layout::ValType>,
     /// Whether a pending `throws = js` error replaces the results (§15).
     pending: bool,
+    /// Whether it's called through JSPI (§16).
+    promising: bool,
 }
 
 /// The return area's wrapper for a glue function returning an array.
@@ -759,6 +795,8 @@ fn instantiate(
                 p.results == Results::Single,
                 e.pending
             );
+        } else if e.promising {
+            let _ = writeln!(s, "  $E[{i}] = $promising({f});");
         } else {
             let _ = writeln!(s, "  $E[{i}] = {f};");
         }

@@ -726,6 +726,7 @@ fixtures! {
     absent_classes => "absent-classes",
     erased_futures => "erased-futures",
     factory => "factory",
+    jspi => "jspi",
     rest_callbacks => "rest-callbacks",
     never => "never",
     constructor_values => "constructor-values",
@@ -766,6 +767,23 @@ fn termination_flag_needs_its_global() {
         &lang("(global (export \"tw:terminated\") (mut i32) (i32.const 0))"),
     );
     assert!(r.is_ok(), "{:?}", r.err().map(|e| e.to_string()));
+}
+
+#[test]
+fn wait_needs_jspi() {
+    let ir = text::parse("ir 1;\nclass C { f(): u32; }").unwrap();
+    let lang =
+        wat::parse_str("(module (import \"tw:future\" \"wait\" (func (param i32))))").unwrap();
+    let err = |p: &str| match ts_gen_bridge::generate(&ir, &Profile::parse(p).unwrap(), &lang) {
+        Ok(_) => String::new(),
+        Err(e) => e.to_string(),
+    };
+    assert!(
+        err("all-linear").contains("`wait` needs `jspi = on`"),
+        "{}",
+        err("all-linear")
+    );
+    assert_eq!(err("jspi = on"), "");
 }
 
 #[test]
