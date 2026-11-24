@@ -79,3 +79,7 @@ wasmparser = "0.263"
 [[test]]
 name = "kotlin"
 path = "examples/kotlin-bindgen/tests/kotlin.rs"
+
+[[test]]
+name = "go"
+path = "examples/go-bindgen/tests/go.rs"

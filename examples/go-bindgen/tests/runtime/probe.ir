@@ -1,0 +1,47 @@
+ir 1;
+
+enum ProbeError extends err {
+  @js(RangeError) Busy(Str);
+}
+
+class Shelf<T> {
+  first(): T;
+}
+
+interface Point {
+  @js(object)
+  new();
+  get x(): f64;
+  set x(value: f64);
+  get label(): str?;
+  set label(value: str?);
+}
+
+namespace ext {
+  shelf(): Shelf<Str>;
+  stock<T>(item: T): future<Shelf<T>>;
+  apply(f: fn(u32) -> u32, x: u32): u32;
+  delay(ms: u32, v: str): future<str>;
+  fail(msg: str): future<str, ProbeError>;
+  boom(): unit throws;
+  bytes(v: u8[]): u8[];
+  words(xs: arr<str>): arr<str>;
+  @js(args = (sep, ...parts))
+  join(sep: str, parts: arr<str>): str;
+  norm(p: Point): Point;
+  row(): future<Any?>;
+  live(): u32;
+}
+
+export class Counter {
+  new(start: u32);
+  get n(): u32;
+  bump(): u32;
+}
+
+export namespace probe {
+  check(n: u32): u32 throws ProbeError;
+  run(): future<str>;
+  parallel(): future<str>;
+  release(): future<u32>;
+}
