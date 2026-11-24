@@ -1,12 +1,13 @@
 /* libffi's interface for wasm32-wasip1, for cffi's _cffi_backend.
  *
- * Wasm can't call a function pointer whose type is only known at run time,
- * so there is no libffi port to WASI. This one has libffi's types and
- * computes struct layouts; ffi_call raises NotImplementedError (cffi's ABI
- * mode: ffi.dlopen, which WASI can't do either, and calls through
- * ffi.cast'ed function pointers), and closures (ffi.callback) can't be
- * made. cffi's API mode (compiled modules, `extern "Python"`) calls C
- * directly and needs none of it. See ffi.c.
+ * Wasm calls a function pointer with call_indirect, whose type is fixed in
+ * the code, so a call or callback whose signature is only known at run
+ * time needs a function compiled for it. gen-trampolines.py compiles one
+ * per signature over Wasm's four value types, up to a number of arguments
+ * (see there); ffi_call raises NotImplementedError for a signature beyond
+ * them, and a callback with one fails to be made. Closures come from a
+ * fixed pool of entry points per signature, so only so many callbacks of
+ * a signature live at once. See ffi.c.
  */
 #ifndef CF_LIBFFI_WASI_H
 #define CF_LIBFFI_WASI_H

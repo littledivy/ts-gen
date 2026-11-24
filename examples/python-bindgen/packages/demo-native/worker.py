@@ -115,6 +115,44 @@ def check_cffi():
     p = ffi.new("struct p *", {"x": 1, "y": 2})
     assert p.y == 2 and ffi.sizeof("struct p") == 8
     assert _cffi_backend.__version__ == cffi.__version__
+    # ABI mode: calls by address and callbacks, through libffi-wasi.
+    ffi.cdef("""
+        size_t strlen(const char *);
+        double pow(double, double);
+        float sqrtf(float);
+        long long llabs(long long);
+        int snprintf(char *, size_t, const char *, ...);
+        void qsort(void *, size_t, size_t, int (*)(const void *, const void *));
+    """)
+    C = ffi.dlopen(None)
+    assert C.strlen(b"hello") == 5 and C.pow(2.0, 10.0) == 1024.0
+    assert C.sqrtf(2.25) == 1.5 and C.llabs(-(1 << 40)) == 1 << 40
+    buf = ffi.new("char[64]")
+    C.snprintf(buf, 64, b"%d-%s-%.2f-%lld", ffi.cast("int", 7), ffi.new("char[]", b"x"), ffi.cast("double", 2.5),
+               ffi.cast("long long", 1 << 33))
+    assert ffi.string(buf) == b"7-x-2.50-8589934592", ffi.string(buf)
+
+    @ffi.callback("int(const void *, const void *)")
+    def cmp(a, b):
+        x, y = ffi.cast("int *", a)[0], ffi.cast("int *", b)[0]
+        return (x > y) - (x < y)
+    arr = ffi.new("int[]", [5, 3, 9, 1, 7])
+    C.qsort(arr, 5, ffi.sizeof("int"), cmp)
+    assert list(arr) == [1, 3, 5, 7, 9]
+    # A struct by value, through a function pointer cast from a callback.
+    ffi.cdef("struct q { double a; int b; };")
+    add = ffi.callback("double(struct q, int)", lambda q, k: q.a * k + q.b)
+    assert ffi.cast("double(*)(struct q, int)", add)({"a": 1.5, "b": 2}, 4) == 8.0
+    try:
+        ffi.dlopen("libz.so")
+    except OSError as e:
+        assert "cannot load library 'libz.so'" in str(e), e
+    else:
+        raise AssertionError("dlopen of a missing library")
+    try:
+        C.not_a_function
+    except AttributeError:
+        pass
 
 
 def check_charset_normalizer():
