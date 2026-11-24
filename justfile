@@ -19,7 +19,7 @@ fmt-check:
 clippy:
     cargo +stable clippy --no-deps --workspace --all-features --exclude ts-gen-integration-tests -- -D warnings
 
-# Run the unit, snapshot and runtime tests (Node 26; TSGEN_SKIP_KOTLIN / TSGEN_SKIP_ZENA skip those toolchains)
+# Run the unit, snapshot and runtime tests (Node 26; TSGEN_SKIP_KOTLIN / TSGEN_SKIP_SWIFT / TSGEN_SKIP_ZENA skip those toolchains)
 test *ARGS="":
     RUST_BACKTRACE=1 cargo +stable test -p ts-gen -p ts-gen-abi -p ts-gen-bridge -p zena-bindgen {{ARGS}}
 
@@ -32,6 +32,10 @@ bench:
 # Run the Kotlin example generator's tests: snapshots, Kotlin/Wasm compiles and runtime (requires a JDK + Node 26)
 test-kotlin *ARGS="":
     RUST_BACKTRACE=1 cargo +stable test -p ts-gen --test kotlin {{ARGS}}
+
+# Run the Swift example generator's tests: snapshots, wasm32-wasip1 compiles and the worker (a Swift toolchain with its Swift SDK for WASI, binaryen's wasm-merge, Node 26; WORKERD or a workerd on PATH for the workerd tour)
+test-swift *ARGS="":
+    RUST_BACKTRACE=1 cargo +stable test -p ts-gen --test swift {{ARGS}}
 
 # Run the Zena example generator's tests; ZENA (a zena-cli) and ZENA_REPO_ROOT enable the compile checks (requires Node 26), WORKERD or a workerd on PATH the example's workerd tour
 test-zena *ARGS="":

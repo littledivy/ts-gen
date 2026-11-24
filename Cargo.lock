@@ -1127,6 +1127,7 @@ dependencies = [
  "prettyplease",
  "proc-macro2",
  "quote",
+ "serde_json",
  "similar",
  "syn 2.0.117",
  "ts-gen-abi",

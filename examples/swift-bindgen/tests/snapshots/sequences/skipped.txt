@@ -1,0 +1,2 @@
+random(*u8[]): kind view
+write(f64,*f32[]): kind view

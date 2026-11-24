@@ -1,0 +1,4 @@
+DurableObject#fetch(Request): future in a nested position
+Counter.restore(str): kind handle
+Registry.create(): kind handle
+enum DurableObjectFetchKind: future in a nested position

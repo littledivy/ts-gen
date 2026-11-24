@@ -1,0 +1,3 @@
+KVNamespace#list(str?,u32?): Str in arr
+methodOf(Method,Flags?): nullable carrier enum
+Counter.create(): kind handle

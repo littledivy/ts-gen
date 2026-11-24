@@ -1,0 +1,1 @@
+DurableObject#get:alarm(): a JS function as a result

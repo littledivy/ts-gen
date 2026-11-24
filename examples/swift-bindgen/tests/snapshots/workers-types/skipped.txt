@@ -1,0 +1,166 @@
+TailStream.Attribute#get:value(): arr element bigint
+TailStream.TailEventHandlerObject#get:outcome(): a JS function as a result
+TailStream.TailEventHandlerObject#get:spanOpen(): a JS function as a result
+TailStream.TailEventHandlerObject#get:spanClose(): a JS function as a result
+TailStream.TailEventHandlerObject#get:diagnosticChannel(): a JS function as a result
+TailStream.TailEventHandlerObject#get:exception(): a JS function as a result
+TailStream.TailEventHandlerObject#get:log(): a JS function as a result
+TailStream.TailEventHandlerObject#get:return(): a JS function as a result
+TailStream.TailEventHandlerObject#get:attributes(): a JS function as a result
+ExportedHandler#get:fetch(): a JS function as a result
+ExportedHandler#set:fetch(fn(Request<CfHostMetadata,IncomingRequestCfProperties<CfHostMetadata>>,Env,ExecutionContext<Props>)->ResponseOrFuture): future in a nested position
+ExportedHandler#get:tail(): a JS function as a result
+ExportedHandler#get:trace(): a JS function as a result
+ExportedHandler#get:tailStream(): a JS function as a result
+ExportedHandler#set:tailStream(fn(TailStream.TailEvent<TailStream.Onset>,Env,ExecutionContext<Props>)->TailEventHandlerTypeOrFuture): future in a nested position
+ExportedHandler#get:scheduled(): a JS function as a result
+ExportedHandler#get:test(): a JS function as a result
+ExportedHandler#get:email(): a JS function as a result
+ExportedHandler#get:queue(): a JS function as a result
+DurableObject#fetch(Request<Any?,CfProperties>): future in a nested position
+AnalyticsEngineDataPoint#get:indexes(): arr element ArrayBufferOrStr?
+AnalyticsEngineDataPoint#set:indexes(arr<ArrayBufferOrStr?>): arr element ArrayBufferOrStr?
+AnalyticsEngineDataPoint#get:blobs(): arr element ArrayBufferOrStr?
+AnalyticsEngineDataPoint#set:blobs(arr<ArrayBufferOrStr?>): arr element ArrayBufferOrStr?
+EventTargetHandlerObject#get:handleEvent(): a JS function as a result
+Blob.new(arr<BlobTypeKind>): arr element BlobTypeKind
+Blob.new(arr<BlobTypeKind>?,BlobOptions): arr element BlobTypeKind
+File.new(arr<BlobTypeKind>?,str): arr element BlobTypeKind
+File.new(arr<BlobTypeKind>?,str,FileOptions): arr element BlobTypeKind
+FormData#getAll(str): arr element FileOrStr
+HTMLRewriterElementContentHandlers#get:element(): a JS function as a result
+HTMLRewriterElementContentHandlers#get:comments(): a JS function as a result
+HTMLRewriterElementContentHandlers#get:text(): a JS function as a result
+HTMLRewriterDocumentContentHandlers#get:doctype(): a JS function as a result
+HTMLRewriterDocumentContentHandlers#get:comments(): a JS function as a result
+HTMLRewriterDocumentContentHandlers#get:text(): a JS function as a result
+HTMLRewriterDocumentContentHandlers#get:end(): a JS function as a result
+FetchEvent#respondWith(ResponseOrFuture): future in a nested position
+QueuingStrategy#get:size(): a JS function as a result
+UnderlyingSink#get:start(): a JS function as a result
+UnderlyingSink#get:write(): a JS function as a result
+UnderlyingSink#get:abort(): a JS function as a result
+UnderlyingSink#get:close(): a JS function as a result
+UnderlyingByteSource#get:start(): a JS function as a result
+UnderlyingByteSource#get:pull(): a JS function as a result
+UnderlyingByteSource#get:cancel(): a JS function as a result
+UnderlyingSource#get:start(): a JS function as a result
+UnderlyingSource#get:pull(): a JS function as a result
+UnderlyingSource#get:cancel(): a JS function as a result
+Transformer#get:start(): a JS function as a result
+Transformer#get:transform(): a JS function as a result
+Transformer#get:flush(): a JS function as a result
+Transformer#get:cancel(): a JS function as a result
+ByteLengthQueuingStrategy#get:size(): a JS function as a result
+CountQueuingStrategy#get:size(): a JS function as a result
+URLPatternResult#get:inputs(): arr element StrOrURLPatternInit
+URLPatternResult#set:inputs(arr<StrOrURLPatternInit>): arr element StrOrURLPatternInit
+WorkerLoader#get(str?,fn()->GetCodeKind): future in a nested position
+AiIMultimodalEmbeddingsOutput#get:data(): arr element arr<f64>
+AiIMultimodalEmbeddingsOutput#set:data(arr<arr<f64>>): arr element arr<f64>
+AiTextEmbeddingsOutput#get:data(): arr element arr<f64>
+AiTextEmbeddingsOutput#set:data(arr<arr<f64>>): arr element arr<f64>
+ResponsesInput#get:input(): arr element ResponseInputItem
+ResponsesInput#set:input(StrOrResponseInputItemArray): arr element ResponseInputItem
+ResponsesOutput#get:instructions(): arr element ResponseInputItem
+ResponsesOutput#set:instructions(StrOrResponseInputItemArray?): arr element ResponseInputItem
+ResponsesOutput#get:output(): arr element ResponseOutputItem
+ResponsesOutput#set:output(arr<ResponseOutputItem>): arr element ResponseOutputItem
+EasyInputMessage#get:content(): arr element ResponseInputContent
+EasyInputMessage#set:content(StrOrResponseInputContentArray): arr element ResponseInputContent
+ResponseCustomToolCallOutput#get:output(): arr element ResponseInputContent
+ResponseCustomToolCallOutput#set:output(StrOrResponseInputContentArray): arr element ResponseInputContent
+ResponseFunctionToolCallOutputItem#get:output(): arr element ResponseInputContent
+ResponseFunctionToolCallOutputItem#set:output(StrOrResponseInputContentArray): arr element ResponseInputContent
+ResponseInputItemFunctionCallOutput#get:output(): arr element ResponseFunctionCallOutputItem
+ResponseInputItemFunctionCallOutput#set:output(ResponseInputItemFunctionCallOutputKind): arr element ResponseFunctionCallOutputItem
+ResponseInputItemMessage#get:content(): arr element ResponseInputContent
+ResponseInputItemMessage#set:content(arr<ResponseInputContent>): arr element ResponseInputContent
+ResponseInputMessageItem#get:content(): arr element ResponseInputContent
+ResponseInputMessageItem#set:content(arr<ResponseInputContent>): arr element ResponseInputContent
+ResponseOutputMessage#get:content(): arr element ResponseOutputMessageContentKind
+ResponseOutputMessage#set:content(arr<ResponseOutputMessageContentKind>): arr element ResponseOutputMessageContentKind
+Ai_Cf_Baai_Bge_M3_Output_EmbeddingFor_Contexts#get:response(): arr element arr<f64>
+Ai_Cf_Baai_Bge_M3_Output_EmbeddingFor_Contexts#set:response(arr<arr<f64>>): arr element arr<f64>
+Ai_Cf_Baai_Bge_M3_Ouput_Embedding#get:data(): arr element arr<f64>
+Ai_Cf_Baai_Bge_M3_Ouput_Embedding#set:data(arr<arr<f64>>): arr element arr<f64>
+Ai_Cf_Meta_Llama_3_2_11B_Vision_Instruct_Messages#get:tools(): arr element AiCfMetaLlama3211BVisionInstructMessagesToolsKind
+Ai_Cf_Meta_Llama_3_2_11B_Vision_Instruct_Messages#set:tools(arr<AiCfMetaLlama3211BVisionInstructMessagesToolsKind>): arr element AiCfMetaLlama3211BVisionInstructMessagesToolsKind
+Ai_Cf_Meta_Llama_3_3_70B_Instruct_Fp8_Fast_Messages#get:tools(): arr element AiCfMetaLlama3370BInstructFp8FastMessagesToolsKind
+Ai_Cf_Meta_Llama_3_3_70B_Instruct_Fp8_Fast_Messages#set:tools(arr<AiCfMetaLlama3370BInstructFp8FastMessagesToolsKind>): arr element AiCfMetaLlama3370BInstructFp8FastMessagesToolsKind
+Ai_Cf_Qwen_Qwen2_5_Coder_32B_Instruct_Messages#get:tools(): arr element AiCfQwenQwen25Coder32BInstructMessagesToolsKind
+Ai_Cf_Qwen_Qwen2_5_Coder_32B_Instruct_Messages#set:tools(arr<AiCfQwenQwen25Coder32BInstructMessagesToolsKind>): arr element AiCfQwenQwen25Coder32BInstructMessagesToolsKind
+Ai_Cf_Qwen_Qwq_32B_Messages#get:tools(): arr element AiCfQwenQwq32BMessagesToolsKind
+Ai_Cf_Qwen_Qwq_32B_Messages#set:tools(arr<AiCfQwenQwq32BMessagesToolsKind>): arr element AiCfQwenQwq32BMessagesToolsKind
+Ai_Cf_Mistralai_Mistral_Small_3_1_24B_Instruct_Messages#get:tools(): arr element AiCfMistralaiMistralSmall3124BInstructMessagesToolsKind
+Ai_Cf_Mistralai_Mistral_Small_3_1_24B_Instruct_Messages#set:tools(arr<AiCfMistralaiMistralSmall3124BInstructMessagesToolsKind>): arr element AiCfMistralaiMistralSmall3124BInstructMessagesToolsKind
+Ai_Cf_Google_Gemma_3_12B_It_Messages#get:tools(): arr element AiCfGoogleGemma312BItMessagesToolsKind
+Ai_Cf_Google_Gemma_3_12B_It_Messages#set:tools(arr<AiCfGoogleGemma312BItMessagesToolsKind>): arr element AiCfGoogleGemma312BItMessagesToolsKind
+Ai_Cf_Meta_Llama_4_Scout_17B_16E_Instruct_Messages#get:tools(): arr element AiCfMetaLlama4Scout17B16EInstructMessagesToolsKind
+Ai_Cf_Meta_Llama_4_Scout_17B_16E_Instruct_Messages#set:tools(arr<AiCfMetaLlama4Scout17B16EInstructMessagesToolsKind>): arr element AiCfMetaLlama4Scout17B16EInstructMessagesToolsKind
+Ai_Cf_Meta_Llama_4_Scout_17B_16E_Instruct_Async_Batch#get:requests(): arr element AiCfMetaLlama4Scout17B16EInstructAsyncBatchRequestsKind
+Ai_Cf_Meta_Llama_4_Scout_17B_16E_Instruct_Async_Batch#set:requests(arr<AiCfMetaLlama4Scout17B16EInstructAsyncBatchRequestsKind>): arr element AiCfMetaLlama4Scout17B16EInstructAsyncBatchRequestsKind
+Ai_Cf_Meta_Llama_4_Scout_17B_16E_Instruct_Messages_Inner#get:tools(): arr element AiCfMetaLlama4Scout17B16EInstructMessagesInnerToolsKind
+Ai_Cf_Meta_Llama_4_Scout_17B_16E_Instruct_Messages_Inner#set:tools(arr<AiCfMetaLlama4Scout17B16EInstructMessagesInnerToolsKind>): arr element AiCfMetaLlama4Scout17B16EInstructMessagesInnerToolsKind
+Ai_Cf_Qwen_Qwen3_30B_A3B_Fp8_Messages#get:tools(): arr element AiCfQwenQwen330BA3BFp8MessagesToolsKind
+Ai_Cf_Qwen_Qwen3_30B_A3B_Fp8_Messages#set:tools(arr<AiCfQwenQwen330BA3BFp8MessagesToolsKind>): arr element AiCfQwenQwen330BA3BFp8MessagesToolsKind
+Ai_Cf_Qwen_Qwen3_30B_A3B_Fp8_Async_Batch#get:requests(): arr element AiCfQwenQwen330BA3BFp8AsyncBatchRequestsKind
+Ai_Cf_Qwen_Qwen3_30B_A3B_Fp8_Async_Batch#set:requests(arr<AiCfQwenQwen330BA3BFp8AsyncBatchRequestsKind>): arr element AiCfQwenQwen330BA3BFp8AsyncBatchRequestsKind
+Ai_Cf_Qwen_Qwen3_30B_A3B_Fp8_Messages_1#get:tools(): arr element AiCfQwenQwen330BA3BFp8Messages1ToolsKind
+Ai_Cf_Qwen_Qwen3_30B_A3B_Fp8_Messages_1#set:tools(arr<AiCfQwenQwen330BA3BFp8Messages1ToolsKind>): arr element AiCfQwenQwen330BA3BFp8Messages1ToolsKind
+Ai_Cf_Qwen_Qwen3_Embedding_0_6B_Output#get:data(): arr element arr<f64>
+Ai_Cf_Qwen_Qwen3_Embedding_0_6B_Output#set:data(arr<arr<f64>>): arr element arr<f64>
+Ai_Cf_Aisingapore_Gemma_Sea_Lion_V4_27B_It_Messages#get:tools(): arr element AiCfAisingaporeGemmaSeaLionV427BItMessagesToolsKind
+Ai_Cf_Aisingapore_Gemma_Sea_Lion_V4_27B_It_Messages#set:tools(arr<AiCfAisingaporeGemmaSeaLionV427BItMessagesToolsKind>): arr element AiCfAisingaporeGemmaSeaLionV427BItMessagesToolsKind
+Ai_Cf_Aisingapore_Gemma_Sea_Lion_V4_27B_It_Async_Batch#get:requests(): arr element AiCfAisingaporeGemmaSeaLionV427BItAsyncBatchRequestsKind
+Ai_Cf_Aisingapore_Gemma_Sea_Lion_V4_27B_It_Async_Batch#set:requests(arr<AiCfAisingaporeGemmaSeaLionV427BItAsyncBatchRequestsKind>): arr element AiCfAisingaporeGemmaSeaLionV427BItAsyncBatchRequestsKind
+Ai_Cf_Aisingapore_Gemma_Sea_Lion_V4_27B_It_Messages_1#get:tools(): arr element AiCfAisingaporeGemmaSeaLionV427BItMessages1ToolsKind
+Ai_Cf_Aisingapore_Gemma_Sea_Lion_V4_27B_It_Messages_1#set:tools(arr<AiCfAisingaporeGemmaSeaLionV427BItMessages1ToolsKind>): arr element AiCfAisingaporeGemmaSeaLionV427BItMessages1ToolsKind
+Ai_Cf_Pfnet_Plamo_Embedding_1B_Output#get:data(): arr element arr<f64>
+Ai_Cf_Pfnet_Plamo_Embedding_1B_Output#set:data(arr<arr<f64>>): arr element arr<f64>
+AiGatewayPatchLog#set:feedback(AiGatewayPatchLogFeedback?): nullable carrier enum
+EventContext#get:waitUntil(): a JS function as a result
+EventContext#set:waitUntil(fn(future<Any?>)): future in a nested position
+EventContext#get:passThroughOnException(): a JS function as a result
+EventContext#get:next(): a JS function as a result
+EventPluginContext#get:waitUntil(): a JS function as a result
+EventPluginContext#set:waitUntil(fn(future<Any?>)): future in a nested position
+EventPluginContext#get:passThroughOnException(): a JS function as a result
+EventPluginContext#get:next(): a JS function as a result
+Ai_Cf_Baai_Bge_Base_En_V1_5_OutputObject#get:data(): arr element arr<f64>
+Ai_Cf_Baai_Bge_Base_En_V1_5_OutputObject#set:data(arr<arr<f64>>): arr element arr<f64>
+Ai_Cf_Baai_Bge_Small_En_V1_5_OutputObject#get:data(): arr element arr<f64>
+Ai_Cf_Baai_Bge_Small_En_V1_5_OutputObject#set:data(arr<arr<f64>>): arr element arr<f64>
+Ai_Cf_Baai_Bge_Large_En_V1_5_OutputObject#get:data(): arr element arr<f64>
+Ai_Cf_Baai_Bge_Large_En_V1_5_OutputObject#set:data(arr<arr<f64>>): arr element arr<f64>
+Ai_Cf_Baai_Bge_M3_InputObject#get:requests(): arr element AiCfBaaiBgeM3InputObjectRequestsKind
+Ai_Cf_Baai_Bge_M3_InputObject#set:requests(arr<AiCfBaaiBgeM3InputObjectRequestsKind>): arr element AiCfBaaiBgeM3InputObjectRequestsKind
+VectorizeVectorMetadataFilterCollectionOpMap#get:$in(): arr element ExcludeVectorizeVectorMetadataValueStringArray
+VectorizeVectorMetadataFilterCollectionOpMap#set:$in(arr<ExcludeVectorizeVectorMetadataValueStringArray>): arr element ExcludeVectorizeVectorMetadataValueStringArray
+VectorizeVectorMetadataFilterCollectionOpMap#get:$nin(): arr element ExcludeVectorizeVectorMetadataValueStringArray
+VectorizeVectorMetadataFilterCollectionOpMap#set:$nin(arr<ExcludeVectorizeVectorMetadataValueStringArray>): arr element ExcludeVectorizeVectorMetadataValueStringArray
+WorkerEntrypoint#fetch(Request<Any?,CfProperties>): future in a nested position
+WorkerEntrypoint#tailStream(TailStream.TailEvent<TailStream.Onset>): future in a nested position
+DurableObject#fetch(Request<Any?,CfProperties>): future in a nested position
+WorkflowStep#get:sleep(): a JS function as a result
+WorkflowStep#get:sleepUntil(): a JS function as a result
+get:onRequest(): a JS function as a result
+ServiceWorkerGlobalScope#get:Navigator(): the same Swift name as another property
+ServiceWorkerGlobalScope#set:Navigator(Any): the same Swift name as another property
+ServiceWorkerGlobalScope#get:Crypto(): the same Swift name as another property
+ServiceWorkerGlobalScope#set:Crypto(Any): the same Swift name as another property
+R2BucketOptions#get:onlyIf(): declared by a parent class
+R2BucketOptions#set:onlyIf(R2Conditional): declared by a parent class
+R2BucketOptions#set:onlyIf(Headers): declared by a parent class
+R2BucketPutOptions#get:onlyIf(): declared by a parent class
+R2BucketPutOptions#set:onlyIf(R2Conditional): declared by a parent class
+R2BucketPutOptions#set:onlyIf(Headers): declared by a parent class
+ResponseFunctionToolCallItem#get:id(): declared by a parent class
+ResponseFunctionToolCallItem#set:id(str): declared by a parent class
+enum ResponseOrFuture: future in a nested position
+enum TailEventHandlerTypeOrFuture: future in a nested position
+enum GetCodeKind: future in a nested position
+enum StrOrResponseInputItemArray: arr element ResponseInputItem
+enum StrOrResponseInputContentArray: arr element ResponseInputContent
+enum ResponseInputItemFunctionCallOutputKind: arr element ResponseFunctionCallOutputItem
+enum AttributeValueKind: arr element bigint

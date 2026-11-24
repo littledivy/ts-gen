@@ -1,0 +1,2 @@
+RoundToOptions#get:smallestUnit(): declared by a parent class
+RoundToOptions#set:smallestUnit(Units): declared by a parent class

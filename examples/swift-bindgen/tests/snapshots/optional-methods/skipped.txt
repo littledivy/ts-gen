@@ -1,0 +1,6 @@
+Handlers#get:element(): a JS function as a result
+Handlers#get:text(): a JS function as a result
+MoreHandlers#get:end(): a JS function as a result
+StreamSink#get:write(): a JS function as a result
+StreamSink#get:close(): a JS function as a result
+InlineHandlers#get:done(): a JS function as a result

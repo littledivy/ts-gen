@@ -1,0 +1,6 @@
+Iterator#next(arr<AnyOrTuple>): arr element AnyOrTuple
+AsyncIterator#next(arr<AnyOrTuple>): arr element AnyOrTuple
+store(Store<unit>): kind never
+ArrayIterator#iterator(): declared by a parent class
+MapIterator#iterator(): declared by a parent class
+SetIterator#iterator(): declared by a parent class
