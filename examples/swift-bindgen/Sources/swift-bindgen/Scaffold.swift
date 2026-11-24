@@ -1,8 +1,6 @@
 /// An app adopting every export protocol, each requirement a stub: the
 /// namespaces' on the app type, and a final class per exported class.
-/// Nil when the module exports nothing.
-func scaffold(_ protocols: [ExportProtocol], appType: String) -> String? {
-    guard !protocols.isEmpty else { return nil }
+func scaffold(_ protocols: [ExportProtocol], appType: String) -> String {
     func stubs(_ p: ExportProtocol) -> [String] {
         p.requirements.map { "  \($0) { fatalError(\"scaffold\") }" }
     }

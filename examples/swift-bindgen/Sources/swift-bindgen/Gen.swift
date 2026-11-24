@@ -220,6 +220,10 @@ final class Gen {
     var keepCallbacksFor: Set<String>?
     private var out: [String] = []
     private(set) var skipped: [(key: String, why: String)] = []
+    /// Members left out for a signature already declared: skipped unless
+    /// another class declares them (a member copied into several).
+    private var duplicates: [(key: String, why: String)] = []
+    private var emittedKeys: Set<String> = []
     private var emittedMembers = 0
     private var tmp = 0
     private var liftCode: [String] = []
@@ -327,6 +331,8 @@ final class Gen {
         n = split(n, ".").map(camel).joined(separator: "_")
         if path == "err" { return "JSException" }
         if swiftTypes.contains(n) || swiftKeywords.contains(n) { n = "JS" + n }
+        // `Any` as `JSAny` would be the runtime's own.
+        if swiftTypes.contains(n) { n += "_" }
         return n
     }
 
@@ -374,9 +380,12 @@ final class Gen {
             return opt(t)
         case "str":
             return opt("String")
+        case "bigint":
+            return opt("JSBigInt")
         case "enum":
             let layout = r["enum"]!
             if ends(layout.s("path") ?? "", "??") { try unsupported("T??") }
+            try checkEnum(layout)
             useEnum(layout)
             return opt(enumName(layout))
         case "host":
@@ -434,6 +443,32 @@ final class Gen {
     private func useEnum(_ layout: JSON) {
         let p = layout.s("path") ?? ""
         if !enumsUsed.has(p) { enumsUsed[p] = layout }
+    }
+
+    /// Whether each payload enum can be declared, by path: nil when it can,
+    /// else why not.
+    private var enumErrors: [String: String?] = [:]
+    private var enumsChecking: Set<String> = []
+
+    /// Throws why a payload enum can't be declared, so that what uses it is
+    /// skipped with it. An enum reaching itself counts as declarable.
+    private func checkEnum(_ layout: JSON) throws {
+        let p = layout.s("path") ?? ""
+        if let known = enumErrors[p] {
+            if let why = known { try unsupported(why) }
+            return
+        }
+        guard layout["shape"]?.s("kind") == "payload", enumsChecking.insert(p).inserted else { return }
+        defer { enumsChecking.remove(p) }
+        do {
+            for a in layout.a("arms") {
+                for pl in a.a("payload") { _ = try payloadType(pl) }
+            }
+            enumErrors[p] = .some(nil)
+        } catch let e as Unsupported {
+            enumErrors[p] = .some(e.message)
+            throw e
+        }
     }
 
     private func caseName(_ arm: JSON) -> String { memberName(arm.s("name") ?? "") }
@@ -750,11 +785,11 @@ final class Gen {
             let id = tmp
             tmp += 1
             var code = ["let _u\(id): String\(nullable ? "?" : "")"]
-            let read = "do { \(op.c)(\(s), TSGenRet.ptr); _u\(id) = TSGenMem.liftString(TSGenRet.i32(0), TSGenRet.i32(1)); RefTable.free(\(s), 1) }"
+            let read = "{ \(op.c)(\(s), TSGenRet.ptr); _u\(id) = TSGenMem.liftString(TSGenRet.i32(0), TSGenRet.i32(1)); RefTable.free(\(s), 1) }"
             if nullable {
                 code.append("if \(s) == 0 || tsgen_ref_is_null(\(s)) != 0 { RefTable.free(\(s), 1); _u\(id) = nil } else \(read)")
             } else {
-                code.append(read)
+                code.append("do \(read)")
             }
             liftCode += code
             return "_u\(id)"
@@ -784,6 +819,12 @@ final class Gen {
             return Low(
                 code: ["let (_sp\(id), _sn\(id)) = TSGenMem.lower(\(e))"], vals: ["_sp\(id)", "_sn\(id)"],
                 post: ["TSGenMem.release(_sp\(id), _sn\(id))"])
+        case "bigint":
+            let id = tmp
+            tmp += 1
+            return Low(
+                code: ["let (_bp\(id), _bn\(id)) = TSGenMem.lower(\(e) as JSBigInt?)"], vals: ["_bp\(id)", "_bn\(id)"],
+                post: ["TSGenMem.release(_bp\(id), _bn\(id))"])
         case "enum":
             return try lowerEnum(r, e)
         case "host":
@@ -812,7 +853,7 @@ final class Gen {
             return Low(
                 code: [
                     "let _vn\(id) = Int32(\(src).count)", "let _vm\(id) = TSGenMem.alloc(Int(_vn\(id)) * \(sz))",
-                    "\(src).withUnsafeBytes { _ = memcpy(_vm\(id), $0.baseAddress, $0.count) }",
+                    "\(src).withUnsafeBytes { if let b = $0.baseAddress { _ = memcpy(_vm\(id), b, $0.count) } }",
                 ],
                 vals: ["(_vn\(id) == 0 ? \(sz) : _i32(_vm\(id)))", nullable ? "(\(e) == nil ? -1 : _vn\(id))" : "_vn\(id)"],
                 post: ["free(_vm\(id))"])
@@ -855,6 +896,8 @@ final class Gen {
             return "(\(vals[0]) == 0 ? nil : \(scalarLift(s, vals[1])))"
         case "str":
             return nullable ? "TSGenMem.liftOptString(\(vals[0]), \(vals[1]))" : "TSGenMem.liftString(\(vals[0]), \(vals[1]))"
+        case "bigint":
+            return "TSGenMem.liftBigInt(\(vals[0]), \(vals[1]))\(nullable ? "" : "!")"
         case "enum":
             return try liftEnum(r, vals)
         case "host", "erased":
@@ -951,7 +994,7 @@ final class Gen {
         let flatRet = wireResults.count == 1 ? " -> \(ws(wireResults[0]))" : ""
         let ps = params.map { ", _ \($0.name): \(ws($0.w))" }.joined()
         out.append("@_expose(wasm, \"\(x.c)\")\n@_cdecl(\"\(x.c)\")\npublic func _\(x.c)(_ env: Int32\(ps))\(flatRet) {\n  \(body.joined(separator: "\n  "))\n}")
-        out.append("@_expose(wasm, \"tw:drop:\(jsStr(r["ty"]))\")\n@_cdecl(\"tsgen_drop_\(x.c)\")\npublic func _tsgen_drop_\(x.c)(_ env: Int32) { _tsgenRelease(env) }")
+        out.append("@_expose(wasm, \(swiftLit("tw:drop:\(jsStr(r["ty"]))")))\n@_cdecl(\"tsgen_drop_\(x.c)\")\npublic func _tsgen_drop_\(x.c)(_ env: Int32) { _tsgenRelease(env) }")
     }
 
     // MARK: Members
@@ -1111,6 +1154,8 @@ final class Gen {
             let d = decls[p]!
             if d.s("kind") == "enum" && !enums.has(p) { enums[p] = d["layout"]! }
         }
+        var dropped: Set<String> = []
+        for d in duplicates where !emittedKeys.contains(d.key) && dropped.insert(d.key).inserted { skipped.append(d) }
         // Enums can pull in more enums through their payloads.
         var done: Set<String> = []
         var more = true
@@ -1217,7 +1262,7 @@ final class Gen {
             try emitProperty(p.get, p.sets, ctx, &out, &settable)
         }
         if ctx.objectInit && !settable.isEmpty {
-            func opt(_ t: String) -> String { ends(t, "?") ? t : has(t, "->") ? "(\(t))?" : "\(t)?" }
+            func opt(_ t: String) -> String { isFunctionType(t) ? "(\(t))?" : ends(t, "?") ? t : "\(t)?" }
             let ps = settable.map { "\($0.name): \(opt($0.type)) = nil" }
             let sets = settable.map { s in
                 s.set.map { "  if let \(s.name) { \(s.tries ? "try? " : "")self.\($0)(\(s.name)) }" }
@@ -1245,11 +1290,28 @@ final class Gen {
             skipped.append((m.s("key") ?? "", (error as? Unsupported)?.message ?? "\(error)"))
             return
         }
-        let isCtor = m.s("kind") == "new"
-        let name = isCtor ? "init" : memberName(jsStr(m.o("name") ?? m["variant"]))
-        let sig = signature(name, g.sp, g.isStatic && !isCtor)
-        if ctx.inherited?.contains(sig) == true || ctx.mine?.set.contains(sig) == true { return }
-        ctx.mine?.set.insert(sig)
+        // A named constructor (`new wrap2(..)`) is a static factory.
+        let isCtor = m.s("kind") == "new" && m.o("name") == nil
+        var name = isCtor ? "init" : memberName(jsStr(m.o("name") ?? m["variant"]))
+        func taken(_ name: String) -> String? {
+            let sig = signature(name, g.sp, g.isStatic && !isCtor)
+            // A class declares its own inits: an inherited one makes the parent.
+            if !isCtor && ctx.inherited?.contains(sig) == true { return "declared by a parent class" }
+            if ctx.mine?.set.contains(sig) == true { return "the same Swift signature as an overload" }
+            return nil
+        }
+        if let why = taken(name) {
+            // Overloads Swift can't tell apart are named by their variant.
+            let variant = memberName(jsStr(m["variant"]))
+            if !isCtor, m["variant"]?.str != nil, variant != name, taken(variant) == nil {
+                name = variant
+            } else {
+                duplicates.append((m.s("key") ?? "", why))
+                return
+            }
+        }
+        ctx.mine?.set.insert(signature(name, g.sp, g.isStatic && !isCtor))
+        emittedKeys.insert(m.s("key") ?? "")
         let params = paramList(g.sp)
         let doc = docComment(m)
         emittedMembers += 1
@@ -1343,7 +1405,12 @@ final class Gen {
         let mod = ctx.global ? "public" : isStatic ? "public static" : "public final"
         let getter = gg.flatMap { $0.isFuture ? nil : $0 }
         let sig = signature(name, [], isStatic) + ":prop"
-        if ctx.inherited?.contains(sig) == true || ctx.mine?.set.contains(sig) == true { return }
+        if ctx.inherited?.contains(sig) == true || ctx.mine?.set.contains(sig) == true {
+            let why = ctx.inherited?.contains(sig) == true ? "declared by a parent class" : "the same Swift name as another property"
+            if gg != nil, let get { duplicates.append((get.s("key") ?? "", why)) }
+            for (m, _) in gs { duplicates.append((m.s("key") ?? "", why)) }
+            return
+        }
         ctx.mine?.set.insert(sig)
         let plainSet = gs.filter { $0.g.sp.count == 1 && !$0.g.isFuture }
         let one = plainSet.count == 1 ? plainSet[0] : nil
@@ -1358,6 +1425,7 @@ final class Gen {
             let setTry = has(one.g.effects, "throws") ? "do {\n      \(replaceAll(setter, "\n", "\n  "))\n      } catch { }" : setter
             out.append("\(doc)\(mod) var \(name): \(tGet) {\n  get {\n    \(gg.body.joined(separator: "\n    "))\n  }\n  set {\n      \(setTry)\n  }\n}")
             emittedMembers += 2
+            emittedKeys.formUnion([get?.s("key") ?? "", one.m.s("key") ?? ""])
             if !isStatic { settable.append(Settable(name: name, type: tGet)) }
             return
         }
@@ -1385,9 +1453,12 @@ final class Gen {
             let t = ends(gg.resT, "?") ? gg.resT : "\(gg.resT)?"
             out.append("\(doc)\(mod) var \(name): \(t) {\n  get {\n    \(gg.body.joined(separator: "\n    "))\n  }\n  set {\n    switch newValue {\n    \(cases.joined(separator: "\n    "))\n    default: break\n    }\n  }\n}")
             emittedMembers += 1
+            emittedKeys.insert(get?.s("key") ?? "")
             if !isStatic { settable.append(Settable(name: name, type: t)) }
-        } else if let gg = getter {
+        } else if let gg {
+            // Read-only, or a getter of a future: an effectful property.
             emittedMembers += 1
+            emittedKeys.insert(get?.s("key") ?? "")
             out.append("\(doc)\(mod) var \(name): \(gg.resT) {\n  get\(gg.effects) {\n    \(gg.body.joined(separator: "\n    "))\n  }\n}")
         } else if let one, !isStatic {
             // Write-only (a callback, say): settable through the init.
@@ -1396,9 +1467,13 @@ final class Gen {
         for (m, g) in gs {
             let fn = setterName(m)
             let s = signature(fn, g.sp, isStatic)
-            if ctx.inherited?.contains(s) == true || ctx.mine?.set.contains(s) == true { continue }
+            if ctx.inherited?.contains(s) == true || ctx.mine?.set.contains(s) == true {
+                duplicates.append((m.s("key") ?? "", ctx.inherited?.contains(s) == true ? "declared by a parent class" : "the same Swift signature as an overload"))
+                continue
+            }
             ctx.mine?.set.insert(s)
             emittedMembers += 1
+            emittedKeys.insert(m.s("key") ?? "")
             out.append("\(mod) func \(fn)(\(paramList(g.sp)))\(g.effects) {\n  \(g.body.joined(separator: "\n  "))\n}")
         }
     }
@@ -1450,7 +1525,7 @@ final class Gen {
             out.append("/// What the module exports as `\(isClass ? "class \(owner)" : "namespace \(owner)")`.\npublic protocol \(proto)\(isClass ? ": AnyObject" : "") {\n#if hasFeature(Embedded)\n  \(typed)\n#else\n  \(untyped)\n#endif\n}")
             if isClass {
                 let c = camel(owner)
-                out.append("@_expose(wasm, \"tw:drop:\(owner)\")\n@_cdecl(\"tsgen_drop_class_\(c)\")\npublic func _tsgen_drop_class_\(c)(_ h: Int32) { _tsgenRelease(h) }")
+                out.append("@_expose(wasm, \(swiftLit("tw:drop:\(owner)")))\n@_cdecl(\"tsgen_drop_class_\(c)\")\npublic func _tsgen_drop_class_\(c)(_ h: Int32) { _tsgenRelease(h) }")
             }
         }
     }
@@ -1540,11 +1615,13 @@ final class Gen {
         if let n = m["name"] { x.details.append(("member", n)) }
         if let k = m["kind"] { x.details.append(("kind", k)) }
         // The result as wire values, then the error path.
-        let l: Low
+        var l: Low
         if isCtor {
             l = Low(code: [], vals: ["TSGenHandle.retain(_r)"])
         } else if valueR.s("kind") == "unit" {
             l = Low(code: [], vals: isFuture ? ["0"] : [])
+        } else if isFuture {
+            l = try resolvedFuture(resultR, valueR, "_r")
         } else if valueR.s("kind") == "host" {
             l = Low(code: [], vals: [valueR.t("nullable") ? "(_r?.jsSlot() ?? 0)" : "_r.jsSlot()"])
         } else {
@@ -1590,6 +1667,24 @@ final class Gen {
         let flatRet = throwsInfo != nil ? " -> Int32" : wireResults.count == 1 ? " -> \(ws(wireResults[0]))" : ""
         out.append("@_expose(wasm, \"\(x.c)\")\n@_cdecl(\"\(x.c)\")\npublic func _\(x.c)(\(flat.map { "_ \($0.n): \(ws($0.w))" }.joined(separator: ", ")))\(flatRet) {\n  \(body.joined(separator: "\n  "))\n}")
         return req
+    }
+
+    /// An async export's result: a new future, resolved with the value, which
+    /// JS sees as the Promise the call returns (IR.md §16).
+    private func resolvedFuture(_ futureR: JSON, _ valueR: JSON, _ e: String) throws -> Low {
+        let v = try lower(valueR, e)
+        let newOp = importOp("tw:future", "new", [], ["externref", "externref"], nil)
+        let res = futureR["resolve"]!
+        let resolveOp = importOp(res.s("module") ?? "", res.s("name") ?? "", ["externref"] + valueR.strs("wire"), [], nil)
+        let id = tmp
+        tmp += 1
+        let code = v.code + [
+            "\(newOp.c)(TSGenRet.ptr)",
+            "let _fu\(id) = TSGenRet.i32(0), _fr\(id) = TSGenRet.i32(1)",
+            "\(resolveOp.c)(\((["_fr\(id)"] + v.vals).joined(separator: ", ")))",
+            "RefTable.free(_fr\(id), 1)",
+        ] + v.post
+        return Low(code: code, vals: ["_fu\(id)"])
     }
 
     /// Lowers a thrown Swift error to the enum's wire values: a value of the

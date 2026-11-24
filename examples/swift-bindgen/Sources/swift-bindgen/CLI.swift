@@ -16,7 +16,8 @@ let usage = """
               import taking one: --callbacks-for names a build of the app
               without any (--no-callbacks). --public keeps the declarations
               public; --runtime also writes <dir>/Runtime.swift; --scaffold writes
-              an app adopting every export protocol, with stub bodies, to <file>
+              an app adopting every export protocol (none when nothing is
+              exported), with stub bodies, to <file>
               if it does not exist.
     shim      writes the Wasm shim for the imports and exports the linked
               Swift module kept.
@@ -112,8 +113,8 @@ func bindings(_ args: [String]) {
     if args.contains("--runtime") {
         write((outDir as NSString).appendingPathComponent("Runtime.swift"), resource("Runtime.swift"))
     }
-    if let file = option(args, "--scaffold"), !FileManager.default.fileExists(atPath: file), let app = scaffold(g.protocols, appType: appType) {
-        write(file, app)
+    if let file = option(args, "--scaffold"), !FileManager.default.fileExists(atPath: file) {
+        write(file, scaffold(g.protocols, appType: appType))
     }
     print("swift-bindgen: \(g.stats())")
 }

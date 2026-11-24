@@ -105,6 +105,55 @@ public enum TSGenMem {
   public static func alloc(_ size: Int) -> UnsafeMutableRawPointer {
     malloc(max(size, 1))!
   }
+  /// A bigint as the `(ptr, len)` of its limbs the bridge reads; `len` is -1
+  /// for nil. The caller frees it.
+  public static func lower(_ v: JSBigInt?) -> (Int32, Int32) {
+    guard let v else { return (8, -1) }
+    let limbs = v.minimalLimbs
+    let p = alloc(limbs.count * 8)
+    limbs.withUnsafeBytes { _ = memcpy(p, $0.baseAddress!, $0.count) }
+    return (_i32(p), Int32(limbs.count))
+  }
+  /// A bigint the bridge allocated, or nil for a `len` of -1; this frees it.
+  public static func liftBigInt(_ p: Int32, _ n: Int32) -> JSBigInt? {
+    if n == -1 { return nil }
+    if n == 0 { return JSBigInt(limbs: []) }
+    let limbs = (0..<Int(n)).map { _ptr(p)!.loadUnaligned(fromByteOffset: $0 * 8, as: UInt64.self) }
+    free(_ptr(p))
+    return JSBigInt(limbs: limbs)
+  }
+}
+
+// MARK: BigInt (IR.md §11)
+
+/// A JS bigint of any size: its two's-complement little-endian 64-bit limbs.
+public struct JSBigInt: Hashable, ExpressibleByIntegerLiteral {
+  /// At least one limb; the last one's top bit is the sign.
+  public private(set) var limbs: [UInt64]
+
+  public init(limbs: [UInt64]) { self.limbs = limbs.isEmpty ? [0] : limbs }
+  public init(_ v: Int64) { limbs = [UInt64(bitPattern: v)] }
+  public init(integerLiteral v: Int64) { self.init(v) }
+
+  /// The limbs without the high ones that only extend the sign.
+  public var minimalLimbs: [UInt64] {
+    var l = limbs
+    while l.count > 1 {
+      let fill: UInt64 = Int64(bitPattern: l[l.count - 2]) < 0 ? .max : 0
+      guard l[l.count - 1] == fill else { break }
+      l.removeLast()
+    }
+    return l
+  }
+
+  /// The value, when it fits in an Int64.
+  public var int64: Int64? {
+    let l = minimalLimbs
+    return l.count == 1 ? Int64(bitPattern: l[0]) : nil
+  }
+
+  public static func == (a: JSBigInt, b: JSBigInt) -> Bool { a.minimalLimbs == b.minimalLimbs }
+  public func hash(into h: inout Hasher) { h.combine(minimalLimbs) }
 }
 
 // MARK: The externref table (IR.md §14)

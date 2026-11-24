@@ -10,7 +10,7 @@ let swiftTypes: Set<String> = Set(
     ("Error Set Result Array String Int Double Float Bool Character Optional Never Any Dictionary Sequence Collection "
         + "Task Actor Equatable Hashable Codable Encoder Decoder Encodable Decodable Range Substring Unicode Comparable Identifiable "
         + "Duration Clock Mirror Void Iterator Int8 Int16 Int32 Int64 UInt UInt8 UInt16 UInt32 UInt64 Float16 Math Hasher "
-        + "JSObject JSAny JSConvertible RefTable TSGen TSGenMem TSGenRet TSGenOps TSGenClosure TSGenHandle JSValueDecoder JSValueEncoder")
+        + "JSObject JSAny JSBigInt JSConvertible RefTable TSGen TSGenMem TSGenRet TSGenOps TSGenClosure TSGenHandle JSValueDecoder JSValueEncoder")
         .split(separator: " ").map(String.init)
 )
 
@@ -79,7 +79,42 @@ func upperFirst(_ s: String) -> String {
     return String(f).uppercased() + String(s.unicodeScalars.dropFirst())
 }
 
-func memberName(_ n: String) -> String { esc(lowerFirst(camel(n))) }
+/// A member's Swift name: camel case, with a name of only symbols
+/// (RegExp's `$_`) spelled out.
+func memberName(_ n: String) -> String {
+    let c = camel(n)
+    return esc(c.utf8.allSatisfy { $0 == 0x5F } ? spell(n) : lowerFirst(c))
+}
+
+private let symbolNames: [Unicode.Scalar: String] = [
+    "$": "dollar", "&": "amp", "+": "plus", "`": "backtick", "'": "quote", "_": "underscore", "*": "star",
+    "-": "minus", "@": "at", "#": "hash", "%": "percent", "!": "bang", "?": "question",
+]
+
+/// A name of symbols, spelled out: `$_` is `dollarUnderscore`.
+private func spell(_ s: String) -> String {
+    s.unicodeScalars.enumerated().map { i, c in
+        let w = symbolNames[c] ?? "u\(String(c.value, radix: 16))"
+        return i == 0 ? w : upperFirst(w)
+    }.joined()
+}
+
+/// Whether a Swift type is a function type: an arrow outside any parentheses.
+func isFunctionType(_ t: String) -> Bool {
+    var depth = 0
+    let u = Array(t.utf8)
+    for (i, c) in u.enumerated() {
+        if c == 0x28 || c == 0x5B { depth += 1 }
+        if c == 0x29 || c == 0x5D { depth -= 1 }
+        if depth == 0 && c == 0x2D && i + 1 < u.count && u[i + 1] == 0x3E { return true }
+    }
+    return false
+}
+
+/// A Swift string literal.
+func swiftLit(_ s: String) -> String {
+    "\"" + replaceAll(replaceAll(s, "\\", "\\\\"), "\"", "\\\"") + "\""
+}
 
 /// Overloads over Codable, which Embedded Swift lacks.
 func codable(_ decl: String) -> String { "#if !hasFeature(Embedded)\n\(decl)\n#endif" }
