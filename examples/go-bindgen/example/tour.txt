@@ -1,0 +1,20 @@
+GET /
+  200 Hello from Go!
+  routes: /echo /json /rewrite /errors /parallel /counter/<name>
+POST /echo
+  200 POST x-go=hi body=Hello!
+POST /json
+  200 {"item":"tea","tags":2,"total":6}
+POST /json (not JSON)
+  200 not an order: Error: Expected property name or '}' in JSON at position 1 (line 1 column 2)
+GET /rewrite
+  200 2 links: <a href="/x" data-n="1">x</a><a href="/y" data-n="2">y</a>
+GET /errors
+  200 atob: DOMException=true
+  URL: TypeError
+GET /parallel
+  200 backend /0, backend /1, backend /2 overlapped=true
+GET /counter/a
+  200 count=1 hits=1 top=1
+GET /counter/a (again)
+  200 count=2 hits=2 top=2

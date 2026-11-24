@@ -53,7 +53,7 @@ that JS can't read. See [bridge/README.md](bridge/README.md).
 
 `ts-gen` itself generates Rust. Other languages are their own projects: a
 generator reads the IR, or `ts-gen-abi lower`'s JSON, and the bridge
-supplies the JS side. Two example generators live under
+supplies the JS side. Three example generators live under
 [examples](examples), to check the IR, the profiles and the bridge against
 real compilers.
 
@@ -62,12 +62,20 @@ real compilers.
 | Rust | wasm-bindgen | `ts-gen` (this crate) | the CLI below; every type read from the IR |
 | Kotlin/Wasm | `all-host, results = single, throws = js` | [examples/kotlin-bindgen](examples/kotlin-bindgen) | imports, exports and async, through the bridge |
 | Zena | `all-gc` with host strings | [examples/zena-bindgen](examples/zena-bindgen) | imports, monomorphized generics |
+| Go | `all-linear, jspi = on` | [examples/go-bindgen](examples/go-bindgen) | imports, exports, callbacks; futures as blocking calls |
 
 **Kotlin**: `kotlin-bindgen <lowered.json> <out-dir> [--package <pkg>]
 [--runtime]` writes Kotlin externals from `ts-gen-abi lower`'s JSON. It also
 writes a `links.tsv` for `ts-gen-bridge link`, since Kotlin names its own
 imports. Build the generator with `./gradlew installDist` in
 `examples/kotlin-bindgen` (JDK 21). [examples/kotlin-bindgen/example](examples/kotlin-bindgen/example)
+runs a Worker end to end.
+
+**Go**: `go-bindgen bindings <lowered.json> --out <dir> [--package <pkg>]`
+writes a Go package, and `go-bindgen shim` the module that adapts a wasip1
+build to the `tw` ABI, merged in with wasm-merge. Calls block their
+goroutine on futures, under JSPI. Build it with `go build` in
+`examples/go-bindgen` (Go 1.24+). [examples/go-bindgen/example](examples/go-bindgen/example)
 runs a Worker end to end.
 
 **Zena**: `zena-bindgen <input.ir> [-o <out.zena>]` writes `@external`
@@ -79,6 +87,7 @@ declarations. They need the Zena compiler fork with the `tw` option on
 ```sh
 just test          # unit, snapshot and bridge runtime tests (Node 26)
 just test-kotlin   # the Kotlin generator: snapshots, Kotlin/Wasm compiles, runtime (JDK 21, Node 26)
+just test-go       # the Go generator: snapshots, wasip1 vet, its JSON codec, runtime (Go 1.24+, Node 26, wasm-tools, wasm-merge)
 just test-zena     # the Zena generator; compiles with ZENA=<zena-cli> ZENA_REPO_ROOT=<checkout>
 just test-integration  # wasm-bindgen integration (wasm32 target, wasm-bindgen-cli)
 just fmt-check && just clippy
