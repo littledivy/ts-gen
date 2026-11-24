@@ -74,8 +74,13 @@ walkdir = { version = "2", optional = true }
 
 [dev-dependencies]
 similar = "2"
+wat = "1.263"
 wasmparser = "0.263"
 
 [[test]]
 name = "kotlin"
 path = "examples/kotlin-bindgen/tests/kotlin.rs"
+
+[[test]]
+name = "python"
+path = "examples/python-bindgen/tests/python.rs"

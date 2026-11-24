@@ -33,6 +33,10 @@ bench:
 test-kotlin *ARGS="":
     RUST_BACKTRACE=1 cargo +stable test -p ts-gen --test kotlin {{ARGS}}
 
+# Run the Python example's tests: the generator's snapshots (python3), then the Worker's build and spec checks (wasmtime, wasm-tools, wasm-merge, python3.13, and `npm install` in examples/python-bindgen)
+test-python *ARGS="":
+    RUST_BACKTRACE=1 cargo +stable test -p ts-gen --test python {{ARGS}}
+
 # Run the Zena example generator's tests; ZENA (a zena-cli) and ZENA_REPO_ROOT enable the compile checks (requires Node 26), WORKERD or a workerd on PATH the example's workerd tour
 test-zena *ARGS="":
     RUST_BACKTRACE=1 cargo +stable test -p zena-bindgen {{ARGS}}

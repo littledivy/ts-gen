@@ -1,0 +1,60 @@
+ir 1;
+
+enum Value {
+  Bool(bool);
+  Num(f64);
+  Big(bigint);
+  Str(str);
+  Thrown("./runtime/generic.js".Thrown);
+  Obj(Any);
+  @fallback Other(Any??);
+}
+
+enum Arg {
+  Bool(bool);
+  Num(f64);
+  Big(bigint);
+  Str(str);
+  Bytes(u8[]);
+  @fallback Ref(Any??);
+}
+
+enum BytesOr {
+  Data(u8[]);
+  Thrown("./runtime/generic.js".Thrown);
+}
+
+module "./runtime/generic.js" {
+  class Thrown {
+    get value(): Value;
+    get message(): str;
+  }
+  get(o: Any, key: str): (Value, u8);
+  set(o: Any, key: str, v: Arg): Value;
+  getIndex(o: Any, i: u32): (Value, u8);
+  has(o: Any, key: str): bool;
+  length(o: Any): u32;
+  keys(o: Any): arr<str>;
+  call(o: Any, method: str, args: arr<Arg>): (Value, u8);
+  invoke(f: Any, args: arr<Arg>): (Value, u8);
+  construct(f: Any, args: arr<Arg>): (Value, u8);
+  traits(o: Any): u8;
+  same(a: Any?, b: Any?): bool;
+  iterator(o: Any, asynchronous: bool): (Value, u8);
+  typeOf(o: Any?): str;
+  instanceOf(o: Any, name: str): bool;
+  toBytes(o: Any): BytesOr;
+  writeBytes(o: Any, offset: u32, data: *u8[]): Value;
+  global(): Any;
+  newArray(items: arr<Arg>): Any;
+  newObject(): Any;
+  box(v: Arg): Any?;
+  failure(message: str): Any;
+  settle(o: Any?): future<Value>;
+  importModule(specifier: str, cx: Any?): future<Value>;
+  later(): future<unit>;
+  callback(id: u32, cx: Any?): Any;
+  export { Thrown, get, set, getIndex, has, length, keys, call, invoke, construct, traits, same, iterator, typeOf, instanceOf, toBytes, writeBytes, global, newArray, newObject, box, failure, settle, importModule, later, callback };
+}
+
+export dispatch(cls: str, method: str, self: Any?, args: arr<Value>, cx: Any?): future<Any?>;
