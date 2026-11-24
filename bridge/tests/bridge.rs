@@ -1,5 +1,6 @@
 //! Bridge fixtures: each `tests/fixtures/<name>/` has an `ir.ts`, an
-//! optional `profile`, and a `test.mjs`. The language module is the
+//! optional `profile`, an optional empty `factory` (generating with
+//! `Options::factory`), and a `test.mjs`. The language module is the
 //! fixture's `lang.wat` (with `{RUNTIME}` standing for the runtime below), or by default a pass-through module that imports
 //! every IR member (and each `protocol` line) and re-exports it as
 //! `call:<key>` (`call:<group>:<name>` for protocol imports), over the counting runtime in `tests/runtime.wat`.
@@ -629,7 +630,10 @@ fn fixture(name: &str) {
         None => lang_src,
     };
     let lang = wat::parse_str(&lang_src).unwrap_or_else(|e| panic!("lang.wat: {e}\n{lang_src}"));
-    let bridge = ts_gen_bridge::generate_with(&ir, &libs, &profile, &lang)
+    let opts = ts_gen_bridge::Options {
+        factory: read("factory").is_some(),
+    };
+    let bridge = ts_gen_bridge::generate_opts(&ir, &libs, &profile, &lang, opts)
         .unwrap_or_else(|e| panic!("{name}: {e}"));
     snapshot(name, "js", &bridge.js);
     snapshot(name, "wat", &bridge.wat);
@@ -721,6 +725,7 @@ fixtures! {
     nested_enums => "nested-enums",
     absent_classes => "absent-classes",
     erased_futures => "erased-futures",
+    factory => "factory",
     rest_callbacks => "rest-callbacks",
     never => "never",
     constructor_values => "constructor-values",
