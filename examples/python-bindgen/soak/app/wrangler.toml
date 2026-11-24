@@ -1,0 +1,13 @@
+# soak/app: build with `APP=soak/app OUTDIR=out-soak ./build.sh`.
+name = "python-soak"
+main = "../../out-soak/entry.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[durable_objects.bindings]]
+name = "SOAK"
+class_name = "Soak"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Soak"]
