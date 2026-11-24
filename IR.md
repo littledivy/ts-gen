@@ -1979,6 +1979,9 @@ future settles. Under `jspi = on`:
   `WebAssembly.promising`. Only those may wait: any other entry has no
   suspendable stack, and its wait traps. The JS result is the promise of
   the call's own future, and an error escaping the call rejects it.
+* Such a call returns to JS at its first suspension, but its arguments stay
+  borrowed until its future settles: the bridge frees them then, not when
+  the call first returns (§11).
 * An export returning a future through the bridge module (a GC position),
   the spill or `throws = js` is unsupported under `jspi = on`.
 

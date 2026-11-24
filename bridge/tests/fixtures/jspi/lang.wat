@@ -28,6 +28,18 @@
     (call $drop (local.get $f))
     (local.get $v))
 
+  ;; Awaits `api.later()` before reading `s`, so the bridge must keep the
+  ;; argument's memory until the call settles; returns the later value plus
+  ;; the string's first byte.
+  (func (export "app.echo(Api,str)") (param $api externref) (param $p i32) (param $n i32) (result externref)
+    (local $v i32) (local $fut externref) (local $res externref)
+    (local.set $v (call $await (call $later (local.get $api)) (i32.const 11)))
+    (call $new)
+    (local.set $res)
+    (local.set $fut)
+    (call $resolve (local.get $res) (i32.add (local.get $v) (i32.load8_u (local.get $p))))
+    (local.get $fut))
+
   (func (export "app.run(Api)") (param $api externref) (result externref)
     (local $a externref) (local $b externref) (local $sum i32)
     (local $fut externref) (local $res externref)

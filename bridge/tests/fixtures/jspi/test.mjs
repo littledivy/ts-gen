@@ -42,4 +42,14 @@ api2.resolvers[0](1);
 api2.resolvers[1](2);
 assert.equal(await first, 3);
 
+// A suspended call keeps its arguments until it settles.
+const api3 = new Api();
+const live = instance.exports["test:live"];
+const before = live();
+const echoed = app.echo(api3, "A");
+assert.equal(live(), before + 1);
+api3.resolvers[0](1);
+assert.equal(await echoed, 66);
+assert.equal(live(), before);
+
 console.log("ok");

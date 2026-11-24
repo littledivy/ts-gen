@@ -96,10 +96,25 @@ impl<'a, 'b> Glue<'a, 'b> {
             }
         }
         let call = format!("$E[{idx}]({})", wire.join(", "));
+        // Under JSPI an entry returning a future returns at its first
+        // suspension, while the language may still read its arguments (§16).
+        let promising = self.l.profile.jspi
+            && sig.results.first().is_some_and(|r| {
+                matches!(
+                    r.repr.kind,
+                    Kind::Host {
+                        of: Host::Future { .. },
+                        ..
+                    }
+                )
+            });
         match sig.results.first() {
             None => b.line(format!("{call};")),
             Some(r) => {
                 b.line(format!("const r = {call};"));
+                if promising && alloc {
+                    b.line("$hold(cx, cxm, r);");
+                }
                 let n = self.f.jsw(&r.repr)?.len();
                 let ws: Vec<String> = if n == 1 {
                     vec!["r".into()]
