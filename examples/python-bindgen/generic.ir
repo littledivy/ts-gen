@@ -6,6 +6,7 @@ enum Value {
   Big(bigint);
   Str(str);
   Thrown("./runtime/generic.js".Thrown);
+  Py("./runtime/generic.js".PyProxy);
   Obj(Any);
   @fallback Other(Any??);
 }
@@ -29,18 +30,19 @@ module "./runtime/generic.js" {
     get value(): Value;
     get message(): str;
   }
-  get(o: Any, key: str): (Value, u8);
+  class PyProxy {}
+  get(o: Any, key: str): (Value, u32);
   set(o: Any, key: str, v: Arg): Value;
-  getIndex(o: Any, i: u32): (Value, u8);
+  getIndex(o: Any, i: u32): (Value, u32);
   has(o: Any, key: str): bool;
   length(o: Any): u32;
   keys(o: Any): arr<str>;
-  call(o: Any, method: str, args: arr<Arg>): (Value, u8);
-  invoke(f: Any, args: arr<Arg>): (Value, u8);
-  construct(f: Any, args: arr<Arg>): (Value, u8);
-  traits(o: Any): u8;
+  call(o: Any, method: str, args: arr<Arg>): (Value, u32);
+  invoke(f: Any, args: arr<Arg>): (Value, u32);
+  construct(f: Any, args: arr<Arg>): (Value, u32);
+  traits(o: Any): u32;
   same(a: Any?, b: Any?): bool;
-  iterator(o: Any, asynchronous: bool): (Value, u8);
+  iterator(o: Any, asynchronous: bool): (Value, u32);
   typeOf(o: Any?): str;
   instanceOf(o: Any, name: str): bool;
   toBytes(o: Any): BytesOr;
@@ -54,7 +56,12 @@ module "./runtime/generic.js" {
   importModule(specifier: str, cx: Any?): future<Value>;
   later(): future<unit>;
   callback(id: u32, cx: Any?): Any;
-  export { Thrown, get, set, getIndex, has, length, keys, call, invoke, construct, traits, same, iterator, typeOf, instanceOf, toBytes, writeBytes, global, newArray, newObject, box, failure, settle, importModule, later, callback };
+  thrown(v: Any?): Any;
+  pyproxy(id: u32, flags: u32, cx: Any?): Any;
+  pyInfo(p: Any): (u32, str);
+  pyDestroy(p: Any, message: str);
+  export { Thrown, PyProxy, get, set, getIndex, has, length, keys, call, invoke, construct, traits, same, iterator, typeOf, instanceOf, toBytes, writeBytes, global, newArray, newObject, box, failure, settle, importModule, later, callback, thrown, pyproxy, pyInfo, pyDestroy };
 }
 
 export dispatch(cls: str, method: str, self: Any?, args: arr<Value>, cx: Any?): future<Any?>;
+export dispatchSync(cls: str, method: str, self: Any?, args: arr<Value>, cx: Any?): Any;

@@ -1,9 +1,26 @@
 """pyodide.ffi on the WASI runtime."""
 
+import _cfjs
 from _cf_runtime import (
+    ConversionError,
+    JsArray,
+    JsAsyncGenerator,
+    JsAsyncIterable,
+    JsAsyncIterator,
+    JsBigInt,
     JsBuffer,
+    JsCallable,
+    JsDoubleProxy,
     JsException,
+    JsGenerator,
+    JsIterable,
+    JsIterator,
+    JsMap,
+    JsMutableMap,
+    JsNull,
+    JsPromise,
     JsProxy,
+    JsTypedArray,
     PyProxy,
     create_once_callable,
     create_proxy,
@@ -13,27 +30,33 @@ from _cf_runtime import (
     to_js,
 )
 
-JsArray = JsMap = JsPromise = JsCallable = JsIterable = JsIterator = JsAsyncIterator = JsDoubleProxy = JsProxy
-JsTypedArray = JsBuffer
 IN_BROWSER = False
 
 
 def can_run_sync():
-    import _cfjs
-
-    return _cfjs.in_request()
+    """Whether run_sync can block here: inside a request, and not in a
+    synchronous call from JS."""
+    return _cfjs.can_suspend()
 
 
 __all__ = [
     "IN_BROWSER",
+    "ConversionError",
     "JsArray",
+    "JsAsyncGenerator",
+    "JsAsyncIterable",
+    "JsAsyncIterator",
+    "JsBigInt",
     "JsBuffer",
     "JsCallable",
     "JsDoubleProxy",
     "JsException",
+    "JsGenerator",
     "JsIterable",
     "JsIterator",
     "JsMap",
+    "JsMutableMap",
+    "JsNull",
     "JsPromise",
     "JsProxy",
     "JsTypedArray",

@@ -37,8 +37,11 @@ PYODIDE_VERSION = "314.0.6"
 # ---- values ----
 
 
-class _JsNull:
+class JsNull:
+    """Pyodide's JsNull: JS null, as its one instance `jsnull`."""
+
     __slots__ = ()
+    __module__ = "pyodide.ffi"
 
     def __repr__(self):
         return "jsnull"
@@ -47,33 +50,170 @@ class _JsNull:
         return False
 
 
-jsnull = _JsNull()
+jsnull = JsNull()
 
 
-class JsException(Exception):
-    """A JS exception. `name` and `message` are the error's; `js_error` is the
-    thrown value itself when it was an object."""
+def _bigint_op(name):
+    op = getattr(int, name)
 
-    def __init__(self, message, js_error=None):
-        name = "Error"
-        if isinstance(js_error, JsRef):
-            try:
-                n = _cfjs.get(js_error, "name")
-                if isinstance(n, str):
-                    name = n
-                m = _cfjs.get(js_error, "message")
-                if isinstance(m, str):
-                    message = m
-            except Exception:
-                pass
-        super().__init__(f"{name}: {message}")
-        self.name = name
-        self.message = message
-        self.js_error = js_error
+    def f(self, *args):
+        r = op(self, *args)
+        return JsBigInt(r) if type(r) is int else r
+
+    f.__name__ = name
+    return f
+
+
+class JsBigInt(int):
+    """Pyodide's JsBigInt: a JS bigint, an int that goes back to JS as a
+    bigint."""
+
+    __slots__ = ()
+    __module__ = "pyodide.ffi"
+
+    for _n in ("__add__", "__radd__", "__sub__", "__rsub__", "__mul__", "__rmul__", "__floordiv__", "__rfloordiv__",
+               "__mod__", "__rmod__", "__pow__", "__rpow__", "__neg__", "__pos__", "__abs__", "__and__", "__rand__",
+               "__or__", "__ror__", "__xor__", "__rxor__", "__lshift__", "__rlshift__", "__rshift__", "__rrshift__",
+               "__invert__"):
+        locals()[_n] = _bigint_op(_n)
+    del _n
+
+
+# JS type flags, as host/generic.js traits() computes them.
+_T_CALL, _T_THEN, _T_ARRAY, _T_ITER, _T_AITER, _T_BUF = 1, 2, 4, 8, 16, 32
+_T_GET, _T_LEN, _T_TYPED, _T_ERROR, _T_NEXT = 64, 128, 256, 512, 1024
+_T_SET, _T_HAS, _T_INCLUDES, _T_DELETE, _T_PROMISE = 2048, 4096, 8192, 16384, 32768
+_T_MAP = _T_GET | _T_LEN | _T_ITER
+_T_SEQ = _T_ARRAY | _T_TYPED
+
+
+class _Flagged(type):
+    """The metaclass of pyodide.ffi's JsProxy classes: isinstance asks what
+    the JS value can do (its type flags), as Pyodide's do."""
+
+    def __instancecheck__(cls, x):
+        check = cls.__dict__.get("_cf_check")
+        if check is None:
+            return type.__instancecheck__(cls, x)
+        return check(x)
+
+    def __subclasscheck__(cls, c):
+        check = cls.__dict__.get("_cf_check_type")
+        if check is None:
+            return type.__subclasscheck__(cls, c)
+        return check(c)
+
+
+def _flag_class(name, test):
+    def check(x):
+        return isinstance(x, JsRef) and test(type(x)._cf_traits)
+
+    def check_type(c):
+        return isinstance(c, type) and issubclass(c, JsRef) and test(getattr(c, "_cf_traits", 0))
+
+    return _Flagged(name, (), {"__slots__": (), "__module__": "pyodide.ffi",
+                               "_cf_check": staticmethod(check), "_cf_check_type": staticmethod(check_type)})
+
+
+class JsProxy(metaclass=_Flagged):
+    """Pyodide's JsProxy: every JS value in Python is one (their classes are
+    made per set of type flags, by _type_for)."""
+
+    __slots__ = ()
+    __module__ = "pyodide.ffi"
+
+    @staticmethod
+    def _cf_check(x):
+        return isinstance(x, (JsRef, JsException))
+
+    @staticmethod
+    def _cf_check_type(c):
+        return isinstance(c, type) and (issubclass(c, JsRef) or type.__subclasscheck__(JsException, c))
+
+
+JsArray = _flag_class("JsArray", lambda t: t & _T_SEQ)
+JsTypedArray = _flag_class("JsTypedArray", lambda t: t & _T_TYPED)
+JsMap = _flag_class("JsMap", lambda t: t & _T_MAP == _T_MAP and not t & _T_SEQ)
+JsMutableMap = _flag_class("JsMutableMap", lambda t: t & (_T_MAP | _T_SET | _T_DELETE) == _T_MAP | _T_SET | _T_DELETE
+                           and not t & _T_SEQ)
+JsBuffer = _flag_class("JsBuffer", lambda t: t & _T_BUF)
+JsCallable = _flag_class("JsCallable", lambda t: t & _T_CALL)
+JsIterable = _flag_class("JsIterable", lambda t: t & _T_ITER)
+JsAsyncIterable = _flag_class("JsAsyncIterable", lambda t: t & _T_AITER)
+JsIterator = _flag_class("JsIterator", lambda t: t & _T_NEXT)
+JsAsyncIterator = _flag_class("JsAsyncIterator", lambda t: t & _T_NEXT and t & _T_AITER)
+JsGenerator = _flag_class("JsGenerator", lambda t: t & _T_NEXT and t & _T_ITER and not t & _T_SEQ)
+JsAsyncGenerator = _flag_class("JsAsyncGenerator", lambda t: t & _T_NEXT and t & _T_AITER)
+JsPromise = _flag_class("JsPromise", lambda t: t & _T_THEN)
+
+
+class JsException(JsProxy, Exception):
+    """A JS exception, as Pyodide's: a JsProxy of the thrown value (its
+    `js_error`) that Python can raise. str() is the JS String(error)."""
+
+    __module__ = "pyodide.ffi"
+
+    def __init__(self, error=None, message=None):
+        if isinstance(error, JsRef):
+            super().__init__(error)
+            self.__dict__["js_error"] = error
+        else:
+            msg = error if message is None else message
+            super().__init__(msg)
+            self.__dict__["js_error"] = None
+            self.__dict__["_cf_message"] = msg
+
+    def __getattr__(self, name):
+        if name.startswith("__") and name.endswith("__"):
+            raise AttributeError(name)
+        e = self.__dict__.get("js_error")
+        if e is None:
+            if name == "message":
+                return self.__dict__.get("_cf_message")
+            if name == "name":
+                return "Error"
+            raise AttributeError(name)
+        # The JsProxy's own methods (to_py, as_object_map...), then JS's.
+        return getattr(e, name)
+
+    @property
+    def typeof(self):
+        e = self.__dict__.get("js_error")
+        return "object" if e is None else _cfjs.type_of(e)
+
+    @property
+    def js_id(self):
+        e = self.__dict__.get("js_error")
+        return id(self) if e is None else e.js_id
+
+
+class ConversionError(Exception):
+    """Pyodide's: to_js found a value it can't convert."""
+
+    __module__ = "pyodide.ffi"
+
+
+# The last Python exception raised to JS (as PythonError), by the key on
+# the error: that one coming back raises the original again, as in Pyodide
+# (which keeps it as sys.last_exc). An older one is a JsException.
+_py_errors = {}
+_next_py_error = [0]
 
 
 def _make_error(message, value):
-    return JsException(message, value if isinstance(value, JsRef) else None)
+    if isinstance(value, JsRef):
+        try:
+            k = _cfjs.get(value, "_cf_exc")
+        except BaseException:
+            k = None
+        if isinstance(k, int):
+            e = _py_errors.get(k)
+            if e is not None:
+                return e
+        return JsException(value)
+    if isinstance(value, JsException):
+        return value
+    return JsException(message)
 
 
 _global = _cfjs.lazy("globalThis")
@@ -94,22 +234,37 @@ def _ctor_name(x):
         return None
 
 
-class JsProxy(JsRef):
-    """A JS value, with Pyodide's JsProxy behaviour."""
+def _out(v):
+    """A JS value as Python code sees it, as Pyodide converts one: an Error
+    is a JsException and a promise a PyodideFuture."""
+    if isinstance(v, JsRef):
+        t = type(v)._cf_traits
+        if t & _T_ERROR:
+            return JsException(v)
+        if t & _T_PROMISE:
+            return PyodideFuture(v)
+    return v
+
+
+_js_ids = [None, 0]  # a JS WeakMap of the objects js_id numbered, and the last number
+
+
+class _JsBase:
+    """What every JsProxy can do. _type_for copies this and the classes
+    below into each JsProxy class."""
+
+    _cf_traits = 0
 
     def __getattr__(self, name):
         if name.startswith("__") and name.endswith("__"):
             raise AttributeError(name)
-        return _cfjs.getattr(self, _unkeyword(name))
+        return _out(_cfjs.getattr(self, _unkeyword(name)))
 
     def __setattr__(self, name, value):
-        _cfjs.set(self, _unkeyword(name), value)
+        _cfjs.set(self, _unkeyword(name), _owned(value))
 
     def __delattr__(self, name):
         _cfjs.call(_cfjs.getattr(_global, "Reflect"), "deleteProperty", (self, _unkeyword(name)))
-
-    def call_relaxed(self, *args, **kwargs):
-        return self(*args, **kwargs)
 
     @property
     def typeof(self):
@@ -117,54 +272,15 @@ class JsProxy(JsRef):
 
     @property
     def js_id(self):
-        return id(self)
-
-    def __len__(self):
-        n = _cfjs.get(self, "length")
-        if not isinstance(n, int):
-            n = _cfjs.get(self, "size")
-        if not isinstance(n, int):
-            raise TypeError("object has no length")
-        return n
-
-    def _has_method(self, name):
-        f = _cfjs.get(self, name)
-        return isinstance(f, JsRef) and _cfjs.type_of(f) == "function"
-
-    # x[key]: JsRef's mapping slot (cfjs.c) calls this.
-    def _cf_getitem(self, key):
-        if isinstance(key, int) and not self._has_method("get"):
-            if key < 0:
-                key += len(self)
-            return _cfjs.get_index(self, key)
-        if self._has_method("get"):
-            v = _cfjs.call(self, "get", (key,))
-            if v is None and self._has_method("has") and not _cfjs.call(self, "has", (key,)):
-                raise KeyError(key)
-            return v
-        v = _cfjs.get(self, str(key))
-        if v is None:
-            raise KeyError(key)
-        return v
-
-    def __setitem__(self, key, value):
-        if self._has_method("set"):
-            _cfjs.call(self, "set", (key, value))
-        else:
-            _cfjs.set(self, str(key), value)
-
-    def __delitem__(self, key):
-        if self._has_method("delete"):
-            _cfjs.call(self, "delete", (key,))
-        else:
-            _cfjs.call(_cfjs.getattr(_global, "Reflect"), "deleteProperty", (self, str(key)))
-
-    def __contains__(self, key):
-        if self._has_method("has"):
-            return bool(_cfjs.call(self, "has", (key,)))
-        if self._has_method("includes"):
-            return bool(_cfjs.call(self, "includes", (key,)))
-        return str(key) in _cfjs.keys(self)
+        if _js_ids[0] is None:
+            _js_ids[0] = _cfjs.construct(_cfjs.getattr(_global, "WeakMap"), ())
+        m = _js_ids[0]
+        i = _cfjs.call(m, "get", (self,))
+        if i is None:
+            _js_ids[1] += 1
+            i = _js_ids[1]
+            _cfjs.call(m, "set", (self, i))
+        return i
 
     def __eq__(self, other):
         if isinstance(other, JsRef):
@@ -175,8 +291,7 @@ class JsProxy(JsRef):
         r = self.__eq__(other)
         return r if r is NotImplemented else not r
 
-    def __hash__(self):
-        return 0
+    __hash__ = None
 
     def __bool__(self):
         return True
@@ -219,24 +334,260 @@ class JsProxy(JsRef):
     def object_entries(self):
         return _cfjs.call(_cfjs.getattr(_global, "Object"), "entries", (self,))
 
-    def to_bytes(self):
-        return _cfjs.to_bytes(_cfjs.construct(_cfjs.getattr(_global, "Uint8Array"), (self,)))
 
-    def to_string(self, encoding=None):
-        return self.to_bytes().decode(encoding or "utf-8")
+def _js_args(args, kwargs, borrowed):
+    a = [_in(x, borrowed) for x in args]
+    if kwargs:
+        o = _cfjs.new_object()
+        for k, v in kwargs.items():
+            _cfjs.set(o, k, _in(v, borrowed))
+        a.append(o)
+    return a
 
-    def destroy(self):
-        pass
 
-    def copy(self):
+def _after_call(r, borrowed):
+    """Pyodide's end of a call: the PyProxies made for its arguments are
+    destroyed, once the promise settles if it returned one."""
+    out = _out(r)
+    if borrowed:
+        if isinstance(out, PyodideFuture):
+            out.add_done_callback(lambda _: _destroy_borrowed(borrowed))
+        elif isinstance(r, JsRef) and type(r)._cf_traits & _T_THEN:
+            # A thenable that isn't a Promise (an RPC call's result).
+            _await_promise(r).add_done_callback(lambda _: _destroy_borrowed(borrowed))
+        else:
+            _destroy_borrowed(borrowed)
+    return out
+
+
+class _JsCallableBag:
+    def __call__(self, *args, **kwargs):
+        borrowed = []
+        try:
+            a = _js_args(args, kwargs, borrowed)
+            bound = self._cf_bound
+            r = _cfjs.call(bound[0], bound[1], a) if bound is not None else _cfjs.invoke(self, a)
+        except BaseException:
+            _destroy_borrowed(borrowed)
+            raise
+        return _after_call(r, borrowed)
+
+    def new(self, *args, **kwargs):
+        borrowed = []
+        try:
+            r = _cfjs.construct(self, _js_args(args, kwargs, borrowed))
+        except BaseException:
+            _destroy_borrowed(borrowed)
+            raise
+        return _after_call(r, borrowed)
+
+    def call_relaxed(self, *args, **kwargs):
+        return self(*args, **kwargs)
+
+
+class _JsIterableBag:
+    def __iter__(self):
+        t = type(self)._cf_traits
+        if t & _T_SEQ:
+            for i in range(_cfjs.length(self)):
+                yield _out(_cfjs.get_index(self, i))
+            return
+        it = _cfjs.call(self, "keys", ()) if t & _T_MAP == _T_MAP else _cfjs.iterator(self, False)
+        while True:
+            step = _cfjs.call(it, "next", ())
+            if _cfjs.get(step, "done"):
+                return
+            yield _out(_cfjs.get(step, "value"))
+
+
+class _JsIteratorBag:
+    def __iter__(self):
         return self
 
+    def __next__(self):
+        step = _cfjs.call(self, "next", ())
+        if _cfjs.get(step, "done"):
+            raise StopIteration(_out(_cfjs.get(step, "value")))
+        return _out(_cfjs.get(step, "value"))
 
-class JsBuffer(JsProxy):
-    """A JS ArrayBuffer, typed array or DataView, as Pyodide's JsBuffer: it
+    def send(self, value):
+        step = _cfjs.call(self, "next", (_owned(value),))
+        if _cfjs.get(step, "done"):
+            raise StopIteration(_out(_cfjs.get(step, "value")))
+        return _out(_cfjs.get(step, "value"))
+
+
+class _JsAsyncIterableBag:
+    def __aiter__(self):
+        return _aiter(self)
+
+
+class _JsLengthBag:
+    def __len__(self):
+        n = _cfjs.get(self, "size")
+        if not isinstance(n, int):
+            n = _cfjs.get(self, "length")
+        return n
+
+    def __bool__(self):
+        return len(self) != 0
+
+
+class _JsSeqBag:
+    """Array-likes: arrays and typed arrays, as Pyodide's JsArray."""
+
+    def _cf_getitem(self, key):
+        if isinstance(key, slice):
+            start, stop, step = key.indices(_cfjs.length(self))
+            if step != 1:
+                return _cfjs.new_array([self._cf_getitem(i) for i in range(start, stop, step)])
+            return _cfjs.call(self, "slice", (start, stop))
+        if not isinstance(key, int):
+            raise TypeError("list indices must be integers or slices, not " + type(key).__name__)
+        n = _cfjs.length(self)
+        i = key + n if key < 0 else key
+        if not 0 <= i < n:
+            raise IndexError(key)
+        return _out(_cfjs.get_index(self, i))
+
+    def __setitem__(self, key, value):
+        n = _cfjs.length(self)
+        i = key + n if key < 0 else key
+        if not 0 <= i < n:
+            raise IndexError(key)
+        _cfjs.set(self, str(i), _owned(value))
+
+    def __delitem__(self, key):
+        n = _cfjs.length(self)
+        i = key + n if key < 0 else key
+        if not 0 <= i < n:
+            raise IndexError(key)
+        _cfjs.call(self, "splice", (i, 1))
+
+    def __contains__(self, x):
+        return bool(_cfjs.call(self, "includes", (_owned(x),)))
+
+    def __reversed__(self):
+        for i in range(_cfjs.length(self) - 1, -1, -1):
+            yield _out(_cfjs.get_index(self, i))
+
+    def index(self, value, start=0, stop=None):
+        n = _cfjs.length(self)
+        stop = n if stop is None else stop
+        for i in range(start, min(stop, n)):
+            if _cfjs.get_index(self, i) == value:
+                return i
+        raise ValueError(f"{value!r} is not in list")
+
+    def count(self, value):
+        return sum(1 for i in range(_cfjs.length(self)) if _cfjs.get_index(self, i) == value)
+
+
+class _JsArrayBag:
+    def append(self, value):
+        _cfjs.call(self, "push", (_owned(value),))
+
+    def extend(self, values):
+        for v in values:
+            _cfjs.call(self, "push", (_owned(v),))
+
+    def __iadd__(self, values):
+        self.extend(values)
+        return self
+
+    def insert(self, i, value):
+        _cfjs.call(self, "splice", (i, 0, _owned(value)))
+
+    def pop(self, i=-1):
+        n = _cfjs.length(self)
+        j = i + n if i < 0 else i
+        if not 0 <= j < n:
+            raise IndexError("pop index out of range")
+        r = _cfjs.call(self, "splice", (j, 1))
+        return _out(_cfjs.get_index(r, 0))
+
+    def remove(self, value):
+        _cfjs.call(self, "splice", (self.index(value), 1))
+
+
+class _JsGetBag:
+    """Objects with get(): Map, Headers, URLSearchParams..."""
+
+    def _cf_getitem(self, key):
+        v = _cfjs.call(self, "get", (_owned(key),))
+        if v is None and (not type(self)._cf_traits & _T_HAS or not _cfjs.call(self, "has", (_owned(key),))):
+            raise KeyError(key)
+        return _out(v)
+
+
+class _JsHasBag:
+    def __contains__(self, key):
+        return bool(_cfjs.call(self, "has", (_owned(key),)))
+
+
+class _JsSetBag:
+    def __setitem__(self, key, value):
+        _cfjs.call(self, "set", (_owned(key), _owned(value)))
+
+
+class _JsDeleteBag:
+    def __delitem__(self, key):
+        if not _cfjs.call(self, "delete", (_owned(key),)):
+            raise KeyError(key)
+
+
+class _JsMapBag:
+    """Pyodide's JsMap methods, over a JS Map's."""
+
+    def get(self, key, default=None):
+        k = _owned(key)
+        v = _cfjs.call(self, "get", (k,))
+        if v is None and not _cfjs.call(self, "has", (k,)):
+            return default
+        return _out(v)
+
+    def items(self):
+        return [(_out(_cfjs.get_index(p, 0)), _out(_cfjs.get_index(p, 1))) for p in _JsIterableBag.__iter__(
+            _cfjs.call(_cfjs.getattr(_global, "Array"), "from", (self,)))]
+
+    def values(self):
+        return [_out(v) for v in _JsIterableBag.__iter__(
+            _cfjs.call(_cfjs.getattr(_global, "Array"), "from", (_cfjs.call(self, "values", ()),)))]
+
+    def pop(self, key, *default):
+        k = _owned(key)
+        if not _cfjs.call(self, "has", (k,)):
+            if default:
+                return default[0]
+            raise KeyError(key)
+        v = _out(_cfjs.call(self, "get", (k,)))
+        _cfjs.call(self, "delete", (k,))
+        return v
+
+    def update(self, other=(), **kwargs):
+        items = other.items() if hasattr(other, "items") else other
+        for k, v in items:
+            _cfjs.call(self, "set", (_owned(k), _owned(v)))
+        for k, v in kwargs.items():
+            _cfjs.call(self, "set", (k, _owned(v)))
+
+    def setdefault(self, key, default=None):
+        k = _owned(key)
+        if not _cfjs.call(self, "has", (k,)):
+            _cfjs.call(self, "set", (k, _owned(default)))
+            return default
+        return _out(_cfjs.call(self, "get", (k,)))
+
+
+# memoryview formats for the typed arrays, as Pyodide's.
+_TYPED_FORMATS = {"Int8Array": "b", "Uint8Array": "B", "Uint8ClampedArray": "B", "Int16Array": "h", "Uint16Array": "H",
+                  "Int32Array": "i", "Uint32Array": "I", "Float16Array": "e", "Float32Array": "f",
+                  "Float64Array": "d", "BigInt64Array": "q", "BigUint64Array": "Q"}
+
+
+class _JsBufferBag:
+    """ArrayBuffer, typed arrays and DataView, as Pyodide's JsBuffer: it
     keeps its JS identity, and to_bytes, to_py and friends copy its bytes."""
-
-    __slots__ = ()
 
     def to_bytes(self):
         return _cfjs.to_bytes(self)
@@ -245,7 +596,9 @@ class JsBuffer(JsProxy):
         return _cfjs.to_bytes(self)
 
     def to_memoryview(self):
-        return memoryview(_cfjs.to_bytes(self))
+        m = memoryview(_cfjs.to_bytes(self))
+        fmt = _TYPED_FORMATS.get(_ctor_name(self)) if type(self)._cf_traits & _T_TYPED else None
+        return m.cast(fmt) if fmt and fmt != "B" else m
 
     def to_py(self, *, depth=-1, default_converter=None):
         return self.to_memoryview()
@@ -261,86 +614,71 @@ class JsBuffer(JsProxy):
 
     def assign(self, rhs):
         data = memoryview(rhs).cast("B")
-        if len(data) != _cfjs.get(self, "byteLength"):
-            raise ValueError("cannot assign from a buffer of a different size")
+        n = _cfjs.get(self, "byteLength")
+        if len(data) != n:
+            # Pyodide's message, lengths in its order.
+            raise ValueError(f"cannot assign to TypedArray of length {len(data)} from buffer of length {n}")
         _cfjs.write_bytes(self, 0, data)
 
     def assign_to(self, to):
         target = memoryview(to).cast("B")
         data = _cfjs.to_bytes(self)
         if len(data) != len(target):
-            raise ValueError("cannot assign to a buffer of a different size")
+            raise ValueError(f"cannot assign from TypedArray of length {len(data)} to buffer of length {len(target)}")
         target[:] = data
 
 
-class _JsCallable:
-    __slots__ = ()
-
-    def __call__(self, *args, **kwargs):
-        if kwargs:
-            args = (*args, kwargs)
-        bound = self._cf_bound
-        if bound is not None:
-            return _cfjs.call(bound[0], bound[1], args)
-        return _cfjs.invoke(self, args)
-
-    def new(self, *args, **kwargs):
-        if kwargs:
-            args = (*args, kwargs)
-        return _cfjs.construct(self, args)
-
-
-
-class _JsAwaitable:
-    __slots__ = ()
-
+class _JsAwaitableBag:
     def __await__(self):
-        return (yield from _await_promise(self))
-
-
-class _JsIterable:
-    __slots__ = ()
-
-    def __iter__(self):
-        if _cfjs.instance_of(self, "Array"):
-            for i in range(_cfjs.length(self)):
-                yield _cfjs.get_index(self, i)
-            return
-        it = _cfjs.iterator(self, False)
-        while True:
-            step = _cfjs.call(it, "next", ())
-            if _cfjs.get(step, "done"):
-                return
-            yield _cfjs.get(step, "value")
-
-
-class _JsAsyncIterable:
-    __slots__ = ()
-
-    def __aiter__(self):
-        return _aiter(self)
+        # Awaited by Python code: what it gets is converted as a promise's.
+        return (yield from _await_promise(self, None, True))
 
 
 _types = {}
+_BAG_SKIP = frozenset({"__dict__", "__weakref__", "__module__", "__qualname__", "__doc__", "__slots__", "__firstlineno__",
+                       "__static_attributes__"})
 
 
 def _type_for(traits):
-    """The JsProxy class for a value with these js.object.traits bits, as
-    Pyodide picks a JsProxy class by what the JS value can do."""
+    """The JsProxy class for a value with these type flags, as Pyodide makes
+    one per set of flags."""
     t = _types.get(traits)
     if t is None:
-        bases = []
-        if traits & 1:
-            bases.append(_JsCallable)
-        if traits & 2:
-            bases.append(_JsAwaitable)
-        if traits & 8:
-            bases.append(_JsIterable)
-        if traits & 16:
-            bases.append(_JsAsyncIterable)
-        if traits & 32:
-            bases.append(JsBuffer)
-        t = _types[traits] = type("JsProxy", (*bases, JsProxy), {"__slots__": (), "__module__": "pyodide.ffi"}) if bases else JsProxy
+        bags = [_JsBase]
+        if traits & _T_CALL:
+            bags.append(_JsCallableBag)
+        if traits & _T_THEN:
+            bags.append(_JsAwaitableBag)
+        if traits & _T_ITER:
+            bags.append(_JsIterableBag)
+        if traits & _T_NEXT:
+            bags.append(_JsIteratorBag)
+        if traits & _T_AITER:
+            bags.append(_JsAsyncIterableBag)
+        if traits & _T_LEN:
+            bags.append(_JsLengthBag)
+        if traits & _T_SEQ:
+            bags.append(_JsSeqBag)
+            if traits & _T_ARRAY:
+                bags.append(_JsArrayBag)
+        else:
+            if traits & _T_GET:
+                bags.append(_JsGetBag)
+            if traits & _T_HAS:
+                bags.append(_JsHasBag)
+            if traits & _T_SET:
+                bags.append(_JsSetBag)
+            if traits & _T_DELETE:
+                bags.append(_JsDeleteBag)
+            if traits & _T_MAP == _T_MAP:
+                bags.append(_JsMapBag)
+        if traits & _T_BUF:
+            bags.append(_JsBufferBag)
+        ns = {}
+        for b in bags:
+            ns.update((k, v) for k, v in vars(b).items() if k not in _BAG_SKIP)
+        ns["_cf_traits"] = traits
+        t = _types[traits] = _cfjs.new_type(ns)
     return t
 
 
@@ -350,7 +688,7 @@ async def _aiter(o):
         step = await _cfjs.call(it, "next", ())
         if _cfjs.get(step, "done"):
             return
-        yield _cfjs.get(step, "value")
+        yield _out(_cfjs.get(step, "value"))
 
 
 class _ObjectMap(collections.abc.MutableMapping):
@@ -407,12 +745,12 @@ _MISSING = object()
 
 
 def _to_py(x, depth, conv, cache):
-    if not isinstance(x, JsProxy):
+    if not isinstance(x, JsRef):
         return x
     if depth == 0:
         return x
-    if isinstance(x, JsBuffer):
-        return x.to_memoryview()
+    if type(x)._cf_traits & _T_BUF:
+        return _JsBufferBag.to_memoryview(x)
     r = cache.get(x, _MISSING)
     if r is not _MISSING:
         return r
@@ -513,6 +851,7 @@ def _release(ids):
         if i:
             cid = int(i)
             _internal.pop(cid, None)
+            _py_objects.pop(cid, None)
             _drop_callback(cid)
 
 
@@ -555,62 +894,349 @@ def _drop_loose():
         _callback_owner.pop(cid, None)
 
 
-class PyProxy:
-    """What create_proxy returns: a Python object JS can hold."""
+# ---- PyProxy: Python objects JS holds ----
+#
+# As Pyodide's: a Python value that isn't a number, string, bool or None
+# reaches JS as a PyProxy (host/generic.js), whose every operation calls
+# back here synchronously (dispatchSync "$py", see _py_op). A PyProxy made
+# for a call's argument is borrowed: it is destroyed once the call returns
+# (or the promise it returned settles). One stored on a JS object, returned
+# to JS, or made by create_proxy is owned, and lives until JS destroys it or
+# drops it (FinalizationRegistry, then dispatch "$release").
 
-    def __init__(self, obj, once=False):
-        self._obj = obj
-        self._once = once
-        self._js = None
+_py_objects = {}  # id -> [object, mode, PyProxy for a once-callable]
+_PY_ONCE, _PY_THIS, _PY_DOUBLE = 1, 2, 4
+_BORROWED = ("This borrowed proxy was automatically destroyed at the end of a function call. "
+             "Try using create_proxy or create_once_callable.")
+_DEBUG_HINT = "\nFor more information about the cause of this error, use `pyodide.setDebug(true)`"
+_ONCE_USED = "OnceProxy can only be called once"
 
-    def _to_js(self):
-        if self._js is None:
-            obj = self._obj
-            if inspect.isawaitable(obj):
-                self._js = _promise_for(obj)
-            elif callable(obj):
-                if self._once:
-                    holder = {}
+# PyProxy flags, as host/generic.js reads them.
+_P_CALL, _P_AWAIT, _P_ITER, _P_NEXT, _P_LEN, _P_GET, _P_SET, _P_HAS = 1, 2, 4, 8, 16, 32, 64, 128
+_P_BUF, _P_DICT, _P_SEQ, _P_MSEQ, _P_GEN, _P_AITER, _P_ANEXT = 256, 512, 1024, 2048, 4096, 8192, 16384
+_py_flags_by_type = {}
 
-                    def once(*args):
-                        _drop_callback(holder.get("id"))
-                        return obj(*args)
 
-                    self._js = _callback_for(once, kept=True)
-                    holder["id"] = self._js._cf_callback_id
+def _py_flags(o):
+    t = type(o)
+    f = _py_flags_by_type.get(t)
+    if f is None:
+        f = 0
+        for bit, name in ((_P_CALL, "__call__"), (_P_AWAIT, "__await__"), (_P_ITER, "__iter__"), (_P_NEXT, "__next__"),
+                          (_P_LEN, "__len__"), (_P_GET, "__getitem__"), (_P_SET, "__setitem__"),
+                          (_P_HAS, "__contains__"), (_P_BUF, "__buffer__"), (_P_AITER, "__aiter__"),
+                          (_P_ANEXT, "__anext__")):
+            # On the class's MRO, not hasattr(t, ...), which also finds the
+            # metaclass's (every class has type.__call__).
+            if any(name in vars(c) for c in t.__mro__):
+                f |= bit
+        if issubclass(t, dict):
+            f |= _P_DICT
+        if issubclass(t, collections.abc.Sequence):
+            f |= _P_SEQ
+        if issubclass(t, collections.abc.MutableSequence):
+            f |= _P_MSEQ
+        if issubclass(t, types.GeneratorType):
+            f |= _P_GEN
+        _py_flags_by_type[t] = f
+    return f
+
+
+def _new_pyproxy(obj, mode=0):
+    cid = _next_callback[0]
+    _next_callback[0] += 1
+    entry = [obj, mode, None]
+    _py_objects[cid] = entry
+    ref = _cfjs.pyproxy(cid, _py_flags(obj))
+    if mode & _PY_ONCE:
+        entry[2] = ref
+    return cid, ref
+
+
+def _is_primitive(x):
+    return x is None or x is jsnull or isinstance(x, (bool, int, float, str, JsRef))
+
+
+def _in(x, borrowed):
+    """x as a JS call argument: itself if JS has the same value, else a
+    PyProxy, borrowed (listed in `borrowed`) or, with borrowed None, owned."""
+    if _is_primitive(x):
+        return x
+    if isinstance(x, JsException):
+        e = x.__dict__.get("js_error")
+        if e is not None:
+            return e
+    elif isinstance(x, PyodideFuture) and x._cf_ref is not None:
+        return x._cf_ref
+    cid, ref = _new_pyproxy(x)
+    # An awaitable is owned even as an argument: JS takes it up later (a
+    # promise's resolution reads its then() in a later job).
+    if borrowed is not None and not inspect.isawaitable(x):
+        borrowed.append((cid, ref))
+    return ref
+
+
+def _owned(x):
+    return _in(x, None)
+
+
+def _destroy_borrowed(borrowed):
+    for cid, ref in borrowed:
+        if _py_objects.pop(cid, None) is not None:
+            _cfjs.py_destroy(ref, _BORROWED + _DEBUG_HINT)
+    borrowed.clear()
+
+
+def _from_pyproxy(cid, destroyed, ref):
+    """A PyProxy coming back from JS: the object it holds. (cfjs.c)"""
+    if destroyed:
+        raise _make_error(destroyed, _js_error(destroyed))
+    entry = _py_objects.get(cid)
+    if entry is None:
+        raise _make_error("Object has already been destroyed", _js_error("Object has already been destroyed" + _DEBUG_HINT))
+    if entry[1] & _PY_DOUBLE:
+        return ref
+    return entry[0]
+
+
+def _py_type_name(o):
+    t = type(o)
+    return t.__qualname__ if t.__module__ == "builtins" else f"{t.__module__}.{t.__qualname__}"
+
+
+def _js_object(**fields):
+    o = _cfjs.new_object()
+    for k, v in fields.items():
+        _cfjs.set(o, k, v)
+    return o
+
+
+def _py_step(it, arg):
+    try:
+        v = it.send(arg) if arg is not None and hasattr(it, "send") else next(it)
+    except StopIteration as e:
+        return _js_object(done=True, value=_owned(e.value))
+    return _js_object(done=False, value=_owned(v))
+
+
+async def _py_astep(it):
+    try:
+        v = await anext(it)
+    except StopAsyncIteration:
+        return _js_object(done=True, value=None)
+    return _js_object(done=False, value=_owned(v))
+
+
+def _py_promise(aw):
+    """A promise for an awaitable JS awaits. Its task first runs from the
+    loop's own callback, not this synchronous call, so it can block
+    (run_sync), as in Pyodide."""
+    me = _request.get()
+    p = _promise_for(aw)
+    _, cb = _once(lambda *_: _step(me))
+    _cfjs.call(_cfjs.call(_cfjs.getattr(_global, "Promise"), "resolve", ()), "then", (cb,))
+    return p
+
+
+def _py_op(op, args):
+    cid = args[0]
+    if op == "destroy":
+        _py_objects.pop(cid, None)
+        return None
+    entry = _py_objects.get(cid)
+    if entry is None:
+        raise RuntimeError("Object has already been destroyed")
+    obj = entry[0]
+    if op == "call":
+        this, kw = args[1], args[2]
+        a = [_out(v) for v in args[3:]]
+        if entry[1] & _PY_THIS:
+            a.insert(0, _out(this))
+        kwargs = {k: _out(_cfjs.get(kw, k)) for k in _cfjs.keys(kw)} if isinstance(kw, JsRef) else {}
+        if entry[1] & _PY_ONCE:
+            del _py_objects[cid]
+            _cfjs.py_destroy(entry[2], _ONCE_USED)
+        r = obj(*a, **kwargs)
+        if not _stepping[0]:
+            _wake_ready()
+        return _owned(r)
+    # A dict's string keys are its properties, as in Pyodide, before its
+    # attributes.
+    if op == "get":
+        key = args[1]
+        if isinstance(obj, dict) and key in obj:
+            return _owned(obj[key])
+        try:
+            return _owned(getattr(obj, key))
+        except AttributeError:
+            return None
+    if op == "set":
+        if isinstance(obj, dict):
+            obj[args[1]] = _out(args[2])
+        else:
+            setattr(obj, args[1], _out(args[2]))
+        return None
+    if op == "has":
+        return isinstance(obj, dict) and args[1] in obj or hasattr(obj, args[1])
+    if op == "del":
+        if isinstance(obj, dict) and args[1] in obj:
+            del obj[args[1]]
+        else:
+            delattr(obj, args[1])
+        return None
+    if op == "keys":
+        if isinstance(obj, dict):
+            keys = [k for k in obj if isinstance(k, str)]
+        elif isinstance(obj, collections.abc.Sequence) and not isinstance(obj, (str, bytes)):
+            keys = [str(i) for i in range(len(obj))]
+        else:
+            keys = [k for k in dir(obj) if isinstance(k, str)]
+        return _cfjs.new_array(keys)
+    if op == "type":
+        return _py_type_name(obj)
+    if op == "str":
+        return str(obj)
+    if op == "copy":
+        return _new_pyproxy(obj)[1]
+    if op == "tojs":
+        depth, create, dict_conv, default_conv = args[1:5]
+        r = to_js(obj, depth=-1 if depth is None else depth, create_pyproxies=create is not False,
+                  dict_converter=dict_conv, default_converter=default_conv)
+        return _owned(r)
+    if op == "promise":
+        return _py_promise(obj)
+    if op == "iter":
+        return _owned(iter(obj))
+    if op == "next":
+        return _py_step(obj, args[1] if len(args) > 1 else None)
+    if op == "len":
+        return len(obj)
+    if op == "getitem":
+        try:
+            return _owned(obj[_out(args[1])])
+        except (KeyError, IndexError):
+            return None
+    if op == "setitem":
+        obj[_out(args[1])] = _out(args[2])
+        return None
+    if op == "delitem":
+        del obj[_out(args[1])]
+        return None
+    if op == "contains":
+        return _out(args[1]) in obj
+    if op == "buffer":
+        m = memoryview(obj)
+        data = _cfjs.construct(_cfjs.getattr(_global, "Uint8Array"), (m.tobytes(),))
+        return _js_object(data=data, nbytes=m.nbytes, readonly=m.readonly, format=m.format, itemsize=m.itemsize,
+                          ndim=m.ndim, shape=_cfjs.new_array(list(m.shape)), strides=_cfjs.new_array(list(m.strides)),
+                          c_contiguous=m.c_contiguous, f_contiguous=m.f_contiguous,
+                          release=_owned(lambda: None))
+    if op == "aiter":
+        return _owned(aiter(obj))
+    if op == "anext":
+        return _py_promise(_py_astep(obj))
+    raise TypeError(f"unknown PyProxy operation {op}")
+
+
+class PyProxy(metaclass=_Flagged):
+    """Pyodide's PyProxy, as Python sees one: what create_proxy returns."""
+
+    __slots__ = ()
+    __module__ = "pyodide.ffi"
+
+    @staticmethod
+    def _cf_check(x):
+        return isinstance(x, JsRef) and x.__dict__.get("_cf_pyproxy", False)
+
+
+JsDoubleProxy = PyProxy
+
+
+class PyodideFuture(asyncio.Future):
+    """Pyodide's PyodideFuture: what a JS promise is in Python. It follows
+    the promise from when something waits on it."""
+
+    __module__ = "pyodide.webloop"
+
+    def __init__(self, js=None):
+        super().__init__(loop=_loop)
+        self._cf_ref = js
+        self._cf_armed = js is None
+
+    def _cf_arm(self):
+        if not self._cf_armed:
+            self._cf_armed = True
+            _await_promise(self._cf_ref, self)
+
+    def add_done_callback(self, fn, *, context=None):
+        self._cf_arm()
+        return super().add_done_callback(fn, context=context)
+
+    # Asking about it starts following the promise too (run_sync polls done()).
+    def done(self):
+        self._cf_arm()
+        return super().done()
+
+    def result(self):
+        self._cf_arm()
+        return super().result()
+
+    def exception(self):
+        self._cf_arm()
+        return super().exception()
+
+    def then(self, onfulfilled=None, onrejected=None):
+        result = PyodideFuture()
+
+        def settle(f):
+            try:
+                if f.cancelled():
+                    result.cancel()
+                    return
+                e = f.exception()
+                if e is None:
+                    r = f.result() if onfulfilled is None else onfulfilled(f.result())
+                elif onrejected is not None:
+                    r = onrejected(e)
                 else:
-                    self._js = _callback_for(obj, kept=True)
+                    result.set_exception(e)
+                    return
+            except BaseException as x:
+                result.set_exception(x)
+                return
+            if inspect.isawaitable(r):
+                asyncio.ensure_future(r, loop=_loop).add_done_callback(lambda g: _chain(g, result))
             else:
-                self._js = _implicit(obj)
-        return self._js
+                result.set_result(r)
 
-    def __call__(self, *args, **kwargs):
-        return self._obj(*args, **kwargs)
+        self.add_done_callback(settle)
+        return result
 
-    def destroy(self):
-        if self._js is not None:
-            _drop_callback(getattr(self._js, "_cf_callback_id", None))
+    def catch(self, onrejected):
+        return self.then(None, onrejected)
 
-    def copy(self):
-        return self
+    def finally_(self, onfinally):
+        def ok(v):
+            onfinally()
+            return v
 
-    def getBuffer(self, type=None):
-        return _PyBuffer(self._obj)
+        def err(e):
+            onfinally()
+            raise e
 
-    def __getattr__(self, name):
-        return getattr(self._obj, name)
+        return self.then(ok, err)
+
+    def syncify(self):
+        return run_sync(self)
 
 
-class _PyBuffer:
-    """Pyodide's PyBuffer. `data` is a JS Uint8Array holding the bytes (a
-    copy here, where Pyodide's is a view of the Python heap), so JS methods
-    such as slice() work on it."""
-
-    def __init__(self, obj):
-        self.data = _cfjs.construct(_cfjs.getattr(_global, "Uint8Array"), (bytes(obj),))
-
-    def release(self):
-        pass
+def _chain(g, result):
+    if g.cancelled():
+        result.cancel()
+    elif g.exception() is not None:
+        result.set_exception(g.exception())
+    else:
+        result.set_result(g.result())
 
 
 def _promise_for(aw, report=False):
@@ -644,7 +1270,7 @@ def _python_error(e):
     """The JS Error for Python exception `e`, shaped as Pyodide's PythonError
     where JS code looks: `e instanceof Error`, `e.constructor.name` is
     "PythonError" and `e.type` is the exception's class name (the SDK's
-    workflows.js reads these)."""
+    workflows.js reads these). Coming back to Python, it raises `e` again."""
     err = _js_error(_format_exc(e))
     if isinstance(e, _PythonUserError):
         return err
@@ -657,13 +1283,24 @@ def _python_error(e):
     _cfjs.set(ctor, "prototype", proto)
     _cfjs.call(obj, "setPrototypeOf", (err, proto))
     _cfjs.set(err, "type", type(e).__name__)
+    _next_py_error[0] += 1
+    k = _next_py_error[0]
+    _py_errors.clear()
+    _py_errors[k] = e
+    _cfjs.call(obj, "defineProperty", (err, "_cf_exc", {"value": k}))
     return err
 
 
 def _implicit(o):
-    """Python -> JS for what cfjs.c doesn't convert itself."""
-    if isinstance(o, PyProxy):
-        return o._to_js()
+    """Python -> JS for what cfjs.c doesn't convert itself, for the
+    runtime's own calls through _cfjs (code calling JS through a JsProxy
+    gets Pyodide's conversions, _in)."""
+    if isinstance(o, JsException):
+        e = o.__dict__.get("js_error")
+        if e is not None:
+            return e
+    if isinstance(o, PyodideFuture) and o._cf_ref is not None:
+        return o._cf_ref
     if isinstance(o, (list, tuple)):
         return _cfjs.new_array(o)
     if isinstance(o, dict):
@@ -688,46 +1325,37 @@ def _implicit(o):
     raise TypeError(f"Cannot convert {type(o).__name__} to a JS value")
 
 
-def _literal_map(arr, pairs):
-    """What to_js makes of a dict by default, like Pyodide's LiteralMap: a
-    Map whose string keys also read as properties (`m.value`), except keys
-    that would hide a Map method or `size`."""
-    m = _cfjs.construct(_cfjs.getattr(_global, "Map"), (arr,))
-    props = [p for p in pairs if isinstance(p[0], str) and p[0] not in _MAP_NAMES]
-    if props:
-        obj = _cfjs.call(_cfjs.getattr(_global, "Object"), "fromEntries", (_cfjs.new_array(props),))
-        _cfjs.call(_cfjs.getattr(_global, "Object"), "assign", (m, obj))
-    return m
-
-
-_MAP_NAMES = frozenset({"clear", "constructor", "delete", "entries", "forEach", "get", "has", "keys", "set", "size", "values",
-                        "__proto__", "hasOwnProperty", "isPrototypeOf", "propertyIsEnumerable", "toLocaleString", "toString", "valueOf"})
-
-
 def to_js(obj, depth=-1, pyproxies=None, create_pyproxies=True, dict_converter=None, default_converter=None, **_):
     cache = {}
     # The objects cacheit keys by id(), kept alive so the ids aren't reused.
     keep = []
 
+    def proxy(x):
+        if not create_pyproxies:
+            raise ConversionError("No conversion known for x.")
+        ref = _owned(x)
+        if pyproxies is not None:
+            pyproxies.append(ref)
+        return ref
+
     def conv(x, d):
-        if x is None or x is jsnull or isinstance(x, (bool, int, float, str, bytes, JsRef)):
+        if _is_primitive(x):
             return x
-        # What create_proxy returned, from the caller or a default_converter:
-        # in Pyodide it is already a JS value, so it isn't converted again.
-        if isinstance(x, PyProxy):
-            return x._to_js()
-        if d == 0:
-            return x
+        if isinstance(x, (JsException, PyodideFuture)):
+            return _owned(x)
         k = id(x)
         if k in cache:
             return cache[k]
+        if d == 0:
+            return proxy(x)
         if isinstance(x, dict):
             pairs = [[conv(a, d - 1), conv(b, d - 1)] for a, b in x.items()]
-            arr = _cfjs.new_array(pairs)
             if dict_converter is not None:
-                r = dict_converter(arr)
+                r = dict_converter(_cfjs.new_array(pairs))
+            elif all(isinstance(p[0], str) for p in pairs):
+                r = _cfjs.call(_cfjs.getattr(_global, "Object"), "fromEntries", (_cfjs.new_array(pairs),))
             else:
-                r = _literal_map(arr, pairs)
+                r = _cfjs.construct(_cfjs.getattr(_global, "Map"), (_cfjs.new_array(pairs),))
             cache[k] = r
             return r
         if isinstance(x, (list, tuple)):
@@ -736,8 +1364,8 @@ def to_js(obj, depth=-1, pyproxies=None, create_pyproxies=True, dict_converter=N
         if isinstance(x, (set, frozenset)):
             r = cache[k] = _cfjs.construct(_cfjs.getattr(_global, "Set"), (_cfjs.new_array([conv(v, d - 1) for v in x]),))
             return r
-        if isinstance(x, (bytearray, memoryview)):
-            return bytes(x)
+        if isinstance(x, (bytes, bytearray, memoryview)):
+            return _cfjs.construct(_cfjs.getattr(_global, "Uint8Array"), (bytes(x),))
         if default_converter is not None:
 
             def convert(v):
@@ -751,38 +1379,33 @@ def to_js(obj, depth=-1, pyproxies=None, create_pyproxies=True, dict_converter=N
             if r is not x:
                 cache[k] = r
                 return conv(r, d) if not isinstance(r, JsRef) else r
-        if isinstance(x, (PyProxy, BaseException)) or callable(x) or inspect.isawaitable(x):
-            return _implicit(x)
         import datetime
 
         if isinstance(x, datetime.datetime):
             return _implicit(x)
-        if not create_pyproxies:
-            raise TypeError(f"Cannot convert {type(x).__name__} to a JS value")
-        return _opaque(x)
+        return proxy(x)
 
     return conv(obj, depth)
 
 
-def _opaque(obj):
-    """What to_js gives for a Python object it doesn't convert. Pyodide gives
-    a PyProxy, which structured clone and RPC refuse with a DataCloneError.
-    This object holds a Symbol, so they refuse it the same way."""
-    o = _cfjs.new_object()
-    _cfjs.set(o, "pyproxy", _cfjs.invoke(_cfjs.getattr(_global, "Symbol"), (type(obj).__name__,)))
-    return o
-
-
 def create_proxy(obj, *, capture_this=False, roundtrip=True):
-    return PyProxy(obj)
+    """A PyProxy JS owns until it destroys it; in Python, a JsProxy of it
+    (Pyodide's JsDoubleProxy), with roundtrip."""
+    mode = (_PY_THIS if capture_this else 0) | (_PY_DOUBLE if roundtrip else 0)
+    _, ref = _new_pyproxy(obj, mode)
+    ref.__dict__["_cf_pyproxy"] = True
+    return ref
 
 
 def create_once_callable(obj, *, _may_syncify=False):
-    return PyProxy(obj, once=True)
+    _, ref = _new_pyproxy(obj, _PY_ONCE | _PY_DOUBLE)
+    ref.__dict__["_cf_pyproxy"] = True
+    return ref
 
 
 def destroy_proxies(proxies):
-    pass
+    for p in proxies:
+        p.destroy()
 
 
 # ---- the event loop ----
@@ -1185,10 +1808,15 @@ def _after_step(me):
         _cfjs.invoke(_sleepers.pop(), ())
 
 
-def _await_promise(promise):
-    """A Future for a JS promise or thenable, settled from its callbacks."""
+def _await_promise(promise, fut=None, out=None):
+    """A Future for a JS promise or thenable, settled from its callbacks:
+    `fut` (a PyodideFuture), or a new one. With out (the default for a
+    PyodideFuture), it gets the value as Python code sees it."""
     loop = _loop
-    fut = loop.create_future()
+    if out is None:
+        out = fut is not None
+    if fut is None:
+        fut = loop.create_future()
     owner = _request.get()
     p = _cfjs.call(_cfjs.getattr(_global, "Promise"), "resolve", (promise,))
     ids = []
@@ -1198,9 +1826,15 @@ def _await_promise(promise):
             _internal.pop(i, None)
         if not fut.cancelled():
             if ok:
-                fut.set_result(value)
+                fut.set_result(_out(value) if out else value)
             else:
-                fut.set_exception(_make_error(_error_message(value), value))
+                # A rejection is a JsException, as Pyodide's futures have
+                # it: only a synchronous throw raises a PythonError's
+                # original exception again.
+                if out:
+                    fut.set_exception(JsException(value) if isinstance(value, JsRef) else JsException(_error_message(value)))
+                else:
+                    fut.set_exception(_make_error(_error_message(value), value))
         _step(owner)
 
     ok_id, ok_cb = _once(lambda v=None: settle(True, v))
@@ -1313,10 +1947,14 @@ def _run(aw):
             _blocked.remove(cur)
 
 
+_SYNC_ENTRY = ("Cannot stack switch because the Python entrypoint was a synchronous function. "
+               "Use pyFunc.callPromising() to fix.")
+
+
 def run_sync(aw):
     """Pyodide's run_sync: blocks (suspending the instance) until `aw` is done."""
-    if not _cfjs.in_request():
-        raise RuntimeError("No suspender")
+    if not _cfjs.can_suspend():
+        raise RuntimeError(_SYNC_ENTRY if _cfjs.in_request() else "No suspender")
     return _run(aw)
 
 
@@ -1621,7 +2259,7 @@ class _JsModule(types.ModuleType):
     def __dir__(self):
         if not _cfjs.in_request():
             return []
-        return JsProxy.__dir__(_global)
+        return _JsBase.__dir__(_global)
 
 
 def _init_set_timeout(cb, delay=0, *args):
@@ -1781,6 +2419,8 @@ def _stats(what):
         idle=len(_idle),
         sleepers=len(_sleepers),
         do_instances=len(_do_instances),
+        pyproxies=len(_py_objects),
+        pyproxy_kinds=dict(collections.Counter(type(e[0]).__qualname__ for e in _py_objects.values()).most_common(8)),
         requests=_next_request[0],
     )
     if "tracemalloc" in sys.modules and sys.modules["tracemalloc"].is_tracing():
@@ -1793,6 +2433,15 @@ def _dispatch(cls, method, this, args):
         # Before anything else here, so that reading the stats changes none
         # of them.
         return (True, _stats(method))
+    if cls == "$py":
+        # A PyProxy operation (dispatchSync): a failure is the PythonError
+        # JS throws.
+        try:
+            return (True, _py_op(method, args))
+        except BaseException as e:
+            if isinstance(e, (SystemExit, KeyboardInterrupt)):
+                raise
+            return (False, _python_error(e))
     if cls == "$release":
         _release(method)
         return (True, None)
@@ -2124,7 +2773,8 @@ def _boot():
     except ImportError:
         pass
     _install_modules()
-    _cfjs.set_hooks(JsProxy, bytes, _implicit, _make_error, _dispatch, jsnull, _type_for)
+    _cfjs.set_hooks(_type_for(0), bytes, _implicit, _make_error, _dispatch, jsnull, _type_for)
+    _cfjs.set_pyproxy_hook(_from_pyproxy, JsBigInt)
     sys.meta_path.insert(0, _MemoryFinder)
     _collect_app()
     from _cloudflare import import_patch_manager

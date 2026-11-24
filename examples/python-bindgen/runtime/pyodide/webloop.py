@@ -2,6 +2,7 @@
 
 import asyncio
 
+from _cf_runtime import PyodideFuture  # noqa: F401
 from _cf_runtime import _Loop as WebLoop  # noqa: F401
 
 

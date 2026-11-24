@@ -17,7 +17,8 @@ TW_IMPORT("tsgen_ref_is_null") int32_t tsgen_ref_is_null(int32_t slot);
 #define TW_Value_Big 3
 #define TW_Value_Str 4
 #define TW_Value_Thrown 5
-#define TW_Value_Obj 6
+#define TW_Value_Py 6
+#define TW_Value_Obj 7
 #define TW_Value_Other -1
 #define TW_Arg_Bool 1
 #define TW_Arg_Num 2
@@ -98,6 +99,14 @@ TW_IMPORT("tw:future::take<unit>") void tw_future_take_unit(int32_t);
 TW_IMPORT("tw:future::resolve<unit>") void tw_future_resolve_unit(int32_t);
 // ("./runtime/generic.js", "callback(u32,Any?)")
 TW_IMPORT("./runtime/generic.js::callback(u32,Any?)") int32_t tw_callback(int32_t, int32_t);
+// ("./runtime/generic.js", "thrown(Any?)")
+TW_IMPORT("./runtime/generic.js::thrown(Any?)") int32_t tw_thrown(int32_t);
+// ("./runtime/generic.js", "pyproxy(u32,u32,Any?)")
+TW_IMPORT("./runtime/generic.js::pyproxy(u32,u32,Any?)") int32_t tw_pyproxy(int32_t, int32_t, int32_t);
+// ("./runtime/generic.js", "pyInfo(Any)")
+TW_IMPORT("./runtime/generic.js::pyInfo(Any)") void tw_pyInfo(int32_t, tw_slot *ret);
+// ("./runtime/generic.js", "pyDestroy(Any,str)")
+TW_IMPORT("./runtime/generic.js::pyDestroy(Any,str)") void tw_pyDestroy(int32_t, int32_t, int32_t);
 // ("tw:future", "take<Any?>")
 TW_IMPORT("tw:future::take<Any?>") int32_t tw_future_take_Any(int32_t);
 // ("tw:future", "resolve<Any?>")
@@ -105,3 +114,4 @@ TW_IMPORT("tw:future::resolve<Any?>") void tw_future_resolve_Any(int32_t, int32_
 
 // Exports and trampolines: export_name("cfts:<name>") definitions the shim calls.
 // "cfts:dispatch(str,str,Any?,arr<Value>,Any?)": int32_t (int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t)
+// "cfts:dispatchSync(str,str,Any?,arr<Value>,Any?)": int32_t (int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t)

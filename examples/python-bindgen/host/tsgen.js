@@ -26,9 +26,10 @@
 //
 //   export default tsgenClass(cfg, "default", { kind: "entrypoint", methods: ["fetch"] });
 //
-// cx is { env, ctx, modules, dispatch }: the call's env and ctx, the modules
-// the packager bundled (cfg.modules), and the instance's dispatch, for
-// calling it back. These cfg fields apply:
+// cx is { env, ctx, modules, dispatch, sync }: the call's env and ctx, the
+// modules the packager bundled (cfg.modules), and the instance's dispatch,
+// for calling it back, and dispatchSync (sync), for JS that needs the
+// result at once. These cfg fields apply:
 //
 // - bases: { entrypoint, "durable-object", workflow }, the classes from
 //   cloudflare:workers each kind extends;
@@ -89,8 +90,8 @@ function releaser(inst, cls) {
       const batch = ids.join(",");
       ids = [];
       if (inst.dead) return;
-      const { dispatch } = inst;
-      dispatch(cls, batch, null, [], { dispatch, release: inst.release }).catch(() => {});
+      const { dispatch, sync } = inst;
+      dispatch(cls, batch, null, [], { dispatch, sync, release: inst.release }).catch(() => {});
     });
   };
 }
@@ -116,6 +117,20 @@ function guarded(inst) {
       if (e instanceof WebAssembly.RuntimeError) inst.onTrap?.(e);
       throw e;
     });
+  };
+}
+
+// cx.sync for a reentrant instance, as guarded.
+function guardedSync(inst) {
+  const { dispatchSync } = inst.bridge;
+  return (...a) => {
+    if (inst.dead) throw new Error("this callback's Wasm instance trapped and was discarded");
+    try {
+      return dispatchSync(...a);
+    } catch (e) {
+      if (e instanceof WebAssembly.RuntimeError) inst.onTrap?.(e);
+      throw e;
+    }
   };
 }
 
@@ -149,14 +164,16 @@ function create(cfg, owner = "default") {
   const inst = new Instance(cfg);
   inst.owner = owner;
   inst.dispatch = inst.bridge.dispatch;
+  inst.sync = inst.bridge.dispatchSync;
   if (cfg.reentrant) {
     inst.release = releaser(inst, "$release");
     inst.dropObject = releaser(inst, "$drop-objects");
     inst.calls = new Set();
     inst.dispatch = guarded(inst);
+    if (inst.sync) inst.sync = guardedSync(inst);
   }
   if (!cfg.init) return inst;
-  const cx = { env: cfg.env, ctx: undefined, modules: cfg.modules, dispatch: inst.dispatch, release: inst.release };
+  const cx = { env: cfg.env, ctx: undefined, modules: cfg.modules, dispatch: inst.dispatch, sync: inst.sync, release: inst.release };
   return Promise.resolve(inst.dispatch("$init", "", null, [], cx)).then(() => inst);
 }
 
@@ -359,8 +376,8 @@ export function tsgenClass(cfg, name, info) {
           }
           return (...args) =>
             pool.run((inst) => {
-              const { dispatch } = inst;
-              return dispatch(name, prop, target, args, { env, ctx, modules: cfg.modules, dispatch, release: inst.release });
+              const { dispatch, sync } = inst;
+              return dispatch(name, prop, target, args, { env, ctx, modules: cfg.modules, dispatch, sync, release: inst.release });
             });
         },
       });

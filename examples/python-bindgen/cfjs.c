@@ -27,12 +27,26 @@
 // The context of the call running now: a JS object with the call's env, ctx
 // and the modules the packager bundled ({ env, ctx, modules }).
 static int32_t cur_cx;
+// Whether the call running now came in through dispatchSync: JS is waiting
+// for its result on its own stack, so it can't suspend.
+static int cur_sync;
 
-static PyObject *proxy_type, *buffer_type, *convert_hook, *error_hook, *dispatch_hook, *jsnull, *type_for_hook;
-// The JsProxy class for each traits value.
-static PyObject *types_by_traits[64];
+static PyObject *proxy_type, *buffer_type, *convert_hook, *error_hook, *dispatch_hook, *jsnull, *type_for_hook,
+    *pyproxy_hook, *bigint_type;
+// The JsProxy class for each traits value: {traits: class}.
+static PyObject *types_by_traits;
 
+int32_t tsgen_running(void);
 static int in_request(void) { return tsgen_depth() > 0; }
+
+// As Pyodide's message for a stack switch from a synchronous entry.
+static const char SYNC_WAIT[] = "Cannot stack switch because the Python entrypoint was a synchronous function. "
+                                "Use pyFunc.callPromising() to fix.";
+static int no_sync_wait(void) {
+  if (!cur_sync) return 0;
+  PyErr_SetString(PyExc_RuntimeError, SYNC_WAIT);
+  return -1;
+}
 
 // ---- JsRef ----
 
@@ -104,12 +118,17 @@ static int32_t ref_slot(JsRef *r) {
 }
 
 static PyTypeObject *type_for(int traits) {
-  traits &= 63;
-  if (!types_by_traits[traits] && type_for_hook) {
-    types_by_traits[traits] = PyObject_CallFunction(type_for_hook, "i", traits);
-    if (!types_by_traits[traits]) PyErr_Clear();
+  if (types_by_traits && type_for_hook) {
+    PyObject *k = PyLong_FromLong(traits), *t = k ? PyDict_GetItemWithError(types_by_traits, k) : NULL;
+    if (k && !t && !PyErr_Occurred()) {
+      t = PyObject_CallFunction(type_for_hook, "i", traits);
+      if (t && PyDict_SetItem(types_by_traits, k, t) < 0) Py_CLEAR(t);
+      Py_XDECREF(t);  // the dict holds it
+    }
+    Py_XDECREF(k);
+    if (t) return (PyTypeObject *)t;
+    PyErr_Clear();
   }
-  if (types_by_traits[traits]) return (PyTypeObject *)types_by_traits[traits];
   return proxy_type ? (PyTypeObject *)proxy_type : &JsRefType;
 }
 
@@ -140,7 +159,11 @@ static void JsRef_dealloc(JsRef *r) {
   Py_CLEAR(r->bthis);
   Py_CLEAR(r->bname);
   Py_CLEAR(r->dict);
-  Py_TYPE(r)->tp_free((PyObject *)r);
+  PyTypeObject *t = Py_TYPE(r);
+  t->tp_free((PyObject *)r);
+  // A class from new_type has no subtype_dealloc to drop its instance's
+  // reference to it.
+  if ((t->tp_flags & Py_TPFLAGS_HEAPTYPE) && t->tp_dealloc == (destructor)JsRef_dealloc) Py_DECREF(t);
 }
 
 // Not Py_TYPE(r): the JsProxy classes are heap types whose subtype_traverse
@@ -176,16 +199,24 @@ static PyGetSetDef JsRef_getset[] = {
 // slot only, so JsProxy classes aren't sequences: like Pyodide's JsProxy, a JS
 // value without Symbol.iterator has no __iter__, and iter() refuses it rather
 // than calling x[0], x[1]... forever.
+// A class without one isn't subscriptable, as a Pyodide JsProxy for a JS
+// value that is neither array-like nor has get().
 static PyObject *JsRef_subscript(PyObject *self, PyObject *key) {
   static PyObject *name;
   if (!name && !(name = PyUnicode_InternFromString("_cf_getitem"))) return NULL;
-  return PyObject_CallMethodOneArg(self, name, key);
+  PyObject *f;
+  if (PyObject_GetOptionalAttr((PyObject *)Py_TYPE(self), name, &f) < 0) return NULL;
+  if (!f) return PyErr_Format(PyExc_TypeError, "'%s' object is not subscriptable", Py_TYPE(self)->tp_name);
+  PyObject *r = PyObject_CallFunctionObjArgs(f, self, key, NULL);
+  Py_DECREF(f);
+  return r;
 }
 
 static PyMappingMethods JsRef_as_mapping = {.mp_subscript = JsRef_subscript};
 
 static PyTypeObject JsRefType = {
-    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "_cfjs.JsRef",
+    // Named as the base of Pyodide's JsProxy classes, which MROs show.
+    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "pyodide.ffi.JsProxy",
     .tp_basicsize = sizeof(JsRef),
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC,
     .tp_new = JsRef_new,
@@ -228,6 +259,8 @@ static PyObject *value_from(tw_slot *r, int traits, int owned) {
     PyObject *v = s2 ? PyLong_FromNativeBytes((const void *)s0, (size_t)s2 * 8, Py_ASNATIVEBYTES_LITTLE_ENDIAN)
                      : PyLong_FromLong(0);
     if (owned && s2) free((void *)s0);
+    // As Pyodide's JsBigInt, which goes back to JS as a bigint.
+    if (v && bigint_type) Py_SETREF(v, PyObject_CallOneArg(bigint_type, v));
     return v;
   }
   case TW_Value_Str:
@@ -235,6 +268,20 @@ static PyObject *value_from(tw_slot *r, int traits, int owned) {
   case TW_Value_Thrown:
     raise_thrown(owned ? s3 : tsgen_slot_dup(s3));
     return NULL;
+  case TW_Value_Py: {
+    // A guest object's PyProxy coming back: the guest's own object (or
+    // the error an operation on a destroyed proxy raises).
+    tw_slot info[3];
+    tw_pyInfo(s3, info);
+    PyObject *msg = str_from(info[1].i32, info[2].i32, 1);
+    PyObject *ref = new_ref_traits(owned ? s3 : tsgen_slot_dup(s3), -1);
+    PyObject *v = NULL;
+    if (!pyproxy_hook) PyErr_SetString(PyExc_SystemError, "no PyProxy hook");
+    else if (msg && ref) v = PyObject_CallFunction(pyproxy_hook, "IOO", (unsigned)info[0].i32, msg, ref);
+    Py_XDECREF(msg);
+    Py_XDECREF(ref);
+    return v;
+  }
   case TW_Value_Obj:
     return new_ref_traits(owned ? s3 : tsgen_slot_dup(s3), traits);
   case TW_Value_Other:
@@ -282,7 +329,8 @@ static int arg_in(PyObject *o, arg_t *a, PyObject *keep, int nest) {
     int overflow;
     long long x = PyLong_AsLongLongAndOverflow(o, &overflow);
     if (x == -1 && PyErr_Occurred()) return -1;
-    if (!overflow && x <= 9007199254740991LL && x >= -9007199254740991LL) {
+    int big = bigint_type && Py_IS_TYPE(o, (PyTypeObject *)bigint_type);
+    if (!big && !overflow && x <= 9007199254740991LL && x >= -9007199254740991LL) {
       a->arm = TW_Arg_Num;
       a->s1 = (double)x;
       return 0;
@@ -721,6 +769,11 @@ static PyObject *f_ctx(PyObject *m, PyObject *unused) {
 
 // Waits for a future of a Value (suspending), then takes and drops it.
 static PyObject *await_value(int32_t f) {
+  if (no_sync_wait() < 0) {
+    tw_future_drop(f);
+    tsgen_slot_free(f);
+    return NULL;
+  }
   tsgen_wait_any(&f, 1);
   tw_slot r[5];
   tw_future_take_Value(f, r);
@@ -774,6 +827,77 @@ static PyObject *f_callback(PyObject *m, PyObject *o) {
   return new_ref_traits(tw_callback((int32_t)id, cur_cx), 1);
 }
 
+// A PyProxy for guest object `id` (host/generic.js pyproxy), which calls
+// the guest back synchronously in the context of the call that made it.
+static PyObject *f_pyproxy(PyObject *m, PyObject *const *args, Py_ssize_t n) {
+  (void)m;
+  unsigned long id, flags;
+  if (n != 2) {
+    PyErr_SetString(PyExc_TypeError, "pyproxy(id, flags)");
+    return NULL;
+  }
+  id = PyLong_AsUnsignedLong(args[0]);
+  if (PyErr_Occurred()) return NULL;
+  flags = PyLong_AsUnsignedLong(args[1]);
+  if (PyErr_Occurred()) return NULL;
+  return new_ref_traits(tw_pyproxy((int32_t)id, (int32_t)flags, cur_cx), flags & 1 ? 1 : 0);
+}
+
+// Marks a PyProxy destroyed, with the message operations on it throw.
+static PyObject *f_py_destroy(PyObject *m, PyObject *const *args, Py_ssize_t n) {
+  (void)m;
+  if (n != 2) {
+    PyErr_SetString(PyExc_TypeError, "py_destroy(proxy, message)");
+    return NULL;
+  }
+  int32_t s = arg_ref(args[0]), mp, mn;
+  if (s < 0 || str_arg(args[1], &mp, &mn) < 0) return NULL;
+  tw_pyDestroy(s, mp, mn);
+  Py_RETURN_NONE;
+}
+
+// Whether the call running now can suspend (Pyodide's can_run_sync).
+static PyObject *f_can_suspend(PyObject *m, PyObject *unused) {
+  (void)m;
+  (void)unused;
+  return PyBool_FromLong(in_request() && !cur_sync);
+}
+
+// A JsProxy class with the attributes in `ns`, named as Pyodide's
+// (pyodide.ffi.JsProxy, which CPython's own error messages print) and
+// directly over JsRef, so its MRO is [JsProxy, JsProxy, object] as theirs.
+static PyObject *f_new_type(PyObject *m, PyObject *ns) {
+  (void)m;
+  if (!PyDict_Check(ns)) {
+    PyErr_SetString(PyExc_TypeError, "new_type(dict)");
+    return NULL;
+  }
+  PyType_Slot slots[] = {{0, NULL}};
+  PyType_Spec spec = {"pyodide.ffi.JsProxy", 0, 0, Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, slots};
+  PyObject *t = PyType_FromSpecWithBases(&spec, (PyObject *)&JsRefType);
+  if (!t) return NULL;
+  PyObject *k, *v;
+  Py_ssize_t pos = 0;
+  while (PyDict_Next(ns, &pos, &k, &v)) {
+    if (PyObject_SetAttr(t, k, v) < 0) {
+      Py_DECREF(t);
+      return NULL;
+    }
+  }
+  return t;
+}
+
+// The hook for a PyProxy coming back, pyproxy_hook(id, destroyed, ref),
+// and the JsBigInt class.
+static PyObject *f_set_pyproxy_hook(PyObject *m, PyObject *args) {
+  (void)m;
+  PyObject *h, *b;
+  if (!PyArg_ParseTuple(args, "OO", &h, &b)) return NULL;
+  Py_XSETREF(pyproxy_hook, Py_NewRef(h));
+  Py_XSETREF(bigint_type, Py_NewRef(b));
+  Py_RETURN_NONE;
+}
+
 static PyObject *f_lazy(PyObject *m, PyObject *name) {
   (void)m;
   // A global is most often a function, a class or a namespace.
@@ -807,6 +931,10 @@ static PyObject *f_wait_any(PyObject *m, PyObject *o) {
   if (n == 0) {
     Py_DECREF(fast);
     PyErr_SetString(PyExc_ValueError, "wait_any on no pendings");
+    return NULL;
+  }
+  if (no_sync_wait() < 0) {
+    Py_DECREF(fast);
     return NULL;
   }
   int32_t *fs = malloc(sizeof *fs * n);
@@ -887,7 +1015,8 @@ static PyObject *f_set_hooks(PyObject *m, PyObject *args) {
   Py_XSETREF(dispatch_hook, Py_NewRef(disp));
   Py_XSETREF(jsnull, Py_NewRef(null));
   Py_XSETREF(type_for_hook, Py_NewRef(tf));
-  for (int i = 0; i < 64; i++) Py_CLEAR(types_by_traits[i]);
+  Py_XSETREF(types_by_traits, PyDict_New());
+  if (!types_by_traits) return NULL;
   Py_RETURN_NONE;
 }
 
@@ -921,6 +1050,11 @@ static PyMethodDef methods[] = {
     {"take", f_take, METH_O, NULL},
     {"drop_pending", f_drop_pending, METH_O, NULL},
     {"in_request", f_in_request, METH_NOARGS, NULL},
+    {"pyproxy", (PyCFunction)(void (*)(void))f_pyproxy, METH_FASTCALL, NULL},
+    {"py_destroy", (PyCFunction)(void (*)(void))f_py_destroy, METH_FASTCALL, NULL},
+    {"can_suspend", f_can_suspend, METH_NOARGS, NULL},
+    {"set_pyproxy_hook", f_set_pyproxy_hook, METH_VARARGS, NULL},
+    {"new_type", f_new_type, METH_O, NULL},
     {"depth", f_depth, METH_NOARGS, NULL},
     {"stats", f_stats, METH_NOARGS, NULL},
     {"set_hooks", f_set_hooks, METH_VARARGS, NULL},
@@ -982,19 +1116,28 @@ extern int cfworkers_init_failed;
 
 // Runs the dispatch hook for one call into the module, in context cx (a
 // slot it takes), and returns the result's slot.
+//
+// For a synchronous entry (sync), a failure is a Thrown of the hook's
+// error value, which the caller throws, rather than a rejected promise.
 static int32_t run_dispatch(PyObject *cls, PyObject *method, int32_t self, int32_t ap, int32_t ab, int32_t an,
-                            int32_t cx) {
+                            int32_t cx, int sync) {
   if (!Py_IsInitialized()) cfworkers_start();
   if (cfworkers_init_failed) {
     Py_XDECREF(cls);
     Py_XDECREF(method);
     if (self) tsgen_slot_free(self);
     tsgen_slot_free(cx);
-    return tw_failure((int32_t) "Python failed to start; see the log.", 36);
+    int32_t f = tw_failure((int32_t) "Python failed to start; see the log.", 36);
+    if (!sync) return f;
+    int32_t t = tw_thrown(f);
+    tsgen_slot_free(f);
+    return t;
   }
   int prev = tsgen_enter();
   int32_t saved = cur_cx;
+  int saved_sync = cur_sync;
   cur_cx = cx;
+  cur_sync = sync;
   PyGILState_STATE gil = PyGILState_Ensure();
   int32_t out = 0;
   PyObject *pself = self ? new_ref_traits(self, -1) : Py_NewRef(Py_None);
@@ -1019,6 +1162,14 @@ static int32_t run_dispatch(PyObject *cls, PyObject *method, int32_t self, int32
       out = result_slot(PyTuple_GET_ITEM(r, 1));
       if (out < 0) out = 0;
       else goto done;
+    } else if (sync) {
+      // (False, error): the JS value the caller throws.
+      int32_t e = result_slot(PyTuple_GET_ITEM(r, 1));
+      if (e >= 0) {
+        out = tw_thrown(e);
+        tsgen_slot_free(e);
+        goto done;
+      }
     } else {
       PyObject *s = PyObject_Str(PyTuple_GET_ITEM(r, 1));
       out = failure_slot(s);
@@ -1032,6 +1183,11 @@ static int32_t run_dispatch(PyObject *cls, PyObject *method, int32_t self, int32
     out = failure_slot(s);
     Py_XDECREF(s);
     Py_XDECREF(exc);
+    if (sync) {
+      int32_t t = tw_thrown(out);
+      tsgen_slot_free(out);
+      out = t;
+    }
   }
 done:
   Py_XDECREF(r);
@@ -1039,6 +1195,7 @@ done:
   fflush(stderr);
   PyGILState_Release(gil);
   cur_cx = saved;
+  cur_sync = saved_sync;
   tsgen_slot_free(cx);
   tsgen_leave(prev);
   return out;
@@ -1055,5 +1212,18 @@ int32_t cf_dispatch(int32_t cp, int32_t cn, int32_t mp, int32_t mn, int32_t self
     tsgen_slot_free(cx);
     cx = tsgen_slot_dup(cur_cx);
   }
-  return run_dispatch(name_from(cp, cn), name_from(mp, mn), self, ap, ab, an, cx);
+  return run_dispatch(name_from(cp, cn), name_from(mp, mn), self, ap, ab, an, cx, 0);
+}
+
+// The same, for JS that needs the result now (a PyProxy operation): it
+// returns the value itself, or a Thrown for a failure, and never suspends.
+__attribute__((export_name("cfts:dispatchSync(str,str,Any?,arr<Value>,Any?)")))
+int32_t cf_dispatch_sync(int32_t cp, int32_t cn, int32_t mp, int32_t mn, int32_t self, int32_t ap, int32_t ab,
+                         int32_t an, int32_t cx) {
+  // As a callback: an operation during a call runs in that call's context.
+  if (tsgen_running()) {
+    tsgen_slot_free(cx);
+    cx = tsgen_slot_dup(cur_cx);
+  }
+  return run_dispatch(name_from(cp, cn), name_from(mp, mn), self, ap, ab, an, cx, 1);
 }

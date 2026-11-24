@@ -124,7 +124,7 @@ function row(done, s, codes) {
   rows.push(r);
   const cells = r.per.map(
     (e) =>
-      `${e.owner}: mem ${fmt(e.memoryBytes)} MiB, objs ${e.gc_objects}, slots ${e.slots_live}, cb ${e.callbacks}/${e.internal_callbacks}, tasks ${e.tasks}/${e.all_tasks}, idle ${e.idle}, wakers ${e.wakers}` +
+      `${e.owner}: mem ${fmt(e.memoryBytes)} MiB, objs ${e.gc_objects}, slots ${e.slots_live}, cb ${e.callbacks}/${e.internal_callbacks}, py ${e.pyproxies}, tasks ${e.tasks}/${e.all_tasks}, idle ${e.idle}, wakers ${e.wakers}` +
       (e.traced_bytes !== undefined ? `, traced ${fmt(e.traced_bytes)} MiB` : ""),
   );
   console.log(`${String(done).padStart(7)} req | inst ${s.instances} (+${s.created} -${s.discarded}) | ${cells.join(" | ")} | ${JSON.stringify(codes)}`);
