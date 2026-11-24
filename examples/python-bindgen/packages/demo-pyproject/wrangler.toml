@@ -1,0 +1,11 @@
+name = "demo-pyproject"
+main = "out/entry.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+# `wrangler dev` and `wrangler deploy` run this first: build.sh installs
+# pyproject.toml's dependencies (recipes for the native ones) and builds the
+# Worker into out/.
+[build]
+command = "APP=src MAIN=entry.py OUTDIR=out ../../build.sh"
+watch_dir = ["src", "pyproject.toml"]
