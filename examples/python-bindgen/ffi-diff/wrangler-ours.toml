@@ -1,0 +1,5 @@
+# This Worker: build with `APP=ffi-diff OUTDIR=ffi-diff/out ./build.sh`.
+name = "ffi-diff-ours"
+main = "out/entry.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]

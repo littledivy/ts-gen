@@ -1,0 +1,5 @@
+# Pyodide: the same probe under workerd's own Python Workers.
+name = "ffi-diff-pyodide"
+main = "worker.py"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["python_workers", "disable_python_external_sdk"]
