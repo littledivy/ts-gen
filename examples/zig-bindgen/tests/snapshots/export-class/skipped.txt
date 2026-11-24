@@ -1,0 +1,5 @@
+DurableObject#fetch(Request): enum DurableObjectFetchKind: a future in a nested position
+Counter#increment(f64): an export returning a future of f64
+Counter.restore(str): handle
+Registry.create(): handle
+DurableObjectFetchKind: enum DurableObjectFetchKind: a future in a nested position

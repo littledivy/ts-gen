@@ -1,0 +1,14 @@
+RegExp#replace(str,fn(str,...arr<Any?>)->str): callback fn(str,...arr<Any?>)->str with several results
+Intl.DurationFormatOptions#get:fractionalDigits(): a nullable carrier enum
+Iterator#next(arr<AnyOrTuple>): arr of AnyOrTuple
+Iterator#next(arr<AnyOrTuple>): arr of AnyOrTuple
+Iterator#next(arr<AnyOrTuple>): arr of AnyOrTuple
+Iterator#next(arr<AnyOrTuple>): arr of AnyOrTuple
+Iterator#next(arr<AnyOrTuple>): arr of AnyOrTuple
+Iterator#next(arr<AnyOrTuple>): arr of AnyOrTuple
+AsyncIterator#next(arr<AnyOrTuple>): arr of AnyOrTuple
+AsyncIterator#next(arr<AnyOrTuple>): arr of AnyOrTuple
+AsyncIterator#next(arr<AnyOrTuple>): arr of AnyOrTuple
+BigInt64Array#sort(fn(i64,i64)->F64OrBigInt): callback fn(i64,i64)->F64OrBigInt with several results
+BigUint64Array#sort(fn(u64,u64)->F64OrBigInt): callback fn(u64,u64)->F64OrBigInt with several results
+F64OrBigInt: enum F64OrBigInt: bigint

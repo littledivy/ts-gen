@@ -19,7 +19,7 @@ fmt-check:
 clippy:
     cargo +stable clippy --no-deps --workspace --all-features --exclude ts-gen-integration-tests -- -D warnings
 
-# Run the unit, snapshot and runtime tests (Node 26; TSGEN_SKIP_KOTLIN / TSGEN_SKIP_ZENA skip those toolchains)
+# Run the unit, snapshot and runtime tests (Node 26; TSGEN_SKIP_KOTLIN / TSGEN_SKIP_ZENA / TSGEN_SKIP_ZIG skip those toolchains)
 test *ARGS="":
     RUST_BACKTRACE=1 cargo +stable test -p ts-gen -p ts-gen-abi -p ts-gen-bridge -p zena-bindgen {{ARGS}}
 
@@ -36,6 +36,10 @@ test-kotlin *ARGS="":
 # Run the Zena example generator's tests; ZENA (a zena-cli) and ZENA_REPO_ROOT enable the compile checks (requires Node 26), WORKERD or a workerd on PATH the example's workerd tour
 test-zena *ARGS="":
     RUST_BACKTRACE=1 cargo +stable test -p zena-bindgen {{ARGS}}
+
+# Run the Zig example generator's tests: snapshots, wasm32 compiles and the worker (requires Zig 0.17, binaryen + Node 26; WORKERD or a workerd on PATH for the workerd tour)
+test-zig *ARGS="":
+    RUST_BACKTRACE=1 cargo +stable test -p ts-gen --test zig {{ARGS}}
 
 # List, per fixture and configuration, the types the IR zip reads from the parse, into target/zip-diffs
 zip-diffs:

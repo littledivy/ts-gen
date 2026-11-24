@@ -1,0 +1,2 @@
+Handler#fetch(Request,Env): enum HandlerFetchKind: a future in a nested position
+HandlerFetchKind: enum HandlerFetchKind: a future in a nested position

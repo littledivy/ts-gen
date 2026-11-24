@@ -53,7 +53,7 @@ that JS can't read. See [bridge/README.md](bridge/README.md).
 
 `ts-gen` itself generates Rust. Other languages are their own projects: a
 generator reads the IR, or `ts-gen-abi lower`'s JSON, and the bridge
-supplies the JS side. Two example generators live under
+supplies the JS side. Example generators live under
 [examples](examples), to check the IR, the profiles and the bridge against
 real compilers.
 
@@ -62,12 +62,20 @@ real compilers.
 | Rust | wasm-bindgen | `ts-gen` (this crate) | the CLI below; every type read from the IR |
 | Kotlin/Wasm | `all-host, results = single, throws = js` | [examples/kotlin-bindgen](examples/kotlin-bindgen) | imports, exports and async, through the bridge |
 | Zena | `all-gc` with host strings | [examples/zena-bindgen](examples/zena-bindgen) | imports, monomorphized generics |
+| Zig | `all-linear, jspi = on` | [examples/zig-bindgen](examples/zig-bindgen) | imports, exports and async (blocking, through JSPI), through a shim and the bridge |
 
 **Kotlin**: `kotlin-bindgen <lowered.json> <out-dir> [--package <pkg>]
 [--runtime]` writes Kotlin externals from `ts-gen-abi lower`'s JSON. It also
 writes a `links.tsv` for `ts-gen-bridge link`, since Kotlin names its own
 imports. Build the generator with `./gradlew installDist` in
 `examples/kotlin-bindgen` (JDK 21). [examples/kotlin-bindgen/example](examples/kotlin-bindgen/example)
+runs a Worker end to end.
+
+**Zig**: `zig-bindgen bindings <lowered.json> --out <dir> [--runtime]`
+writes Zig bindings from `ts-gen-abi lower`'s JSON, and `zig-bindgen shim`
+the WAT that adapts the compiled module to the `tw` ABI, since Zig can't
+name `externref`. Build the generator with `zig build` in
+`examples/zig-bindgen` (Zig 0.17). [examples/zig-bindgen/example](examples/zig-bindgen/example)
 runs a Worker end to end.
 
 **Zena**: `zena-bindgen <input.ir> [-o <out.zena>]` writes `@external`
@@ -80,14 +88,16 @@ declarations. They need the Zena compiler fork with the `tw` option on
 just test          # unit, snapshot and bridge runtime tests (Node 26)
 just test-kotlin   # the Kotlin generator: snapshots, Kotlin/Wasm compiles, runtime (JDK 21, Node 26)
 just test-zena     # the Zena generator; compiles with ZENA=<zena-cli> ZENA_REPO_ROOT=<checkout>
+just test-zig      # the Zig generator: snapshots, wasm32 compiles, the worker (Zig 0.17, binaryen, Node 26)
 just test-integration  # wasm-bindgen integration (wasm32 target, wasm-bindgen-cli)
 just fmt-check && just clippy
 ```
 
-`just test` runs the Kotlin and Zena tests too when their tools are present,
-and skips them otherwise. Under `CI` a missing tool is a failure, unless
-`TSGEN_SKIP_KOTLIN` or `TSGEN_SKIP_ZENA` is set. The main CI job sets both,
-and separate jobs run each toolchain. `BLESS=1` re-blesses snapshots.
+`just test` runs the Kotlin, Zena and Zig tests too when their tools are
+present, and skips them otherwise. Under `CI` a missing tool is a failure,
+unless `TSGEN_SKIP_KOTLIN` or `TSGEN_SKIP_ZENA` is set (the Zig tests fail
+on one only under `TSGEN_REQUIRE_ZIG`). The main CI job sets both,
+and separate jobs run the Kotlin and Zena toolchains. `BLESS=1` re-blesses snapshots.
 
 ## Rust (wasm-bindgen)
 
