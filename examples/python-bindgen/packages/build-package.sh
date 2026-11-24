@@ -135,9 +135,14 @@ numpy_include() {
   echo "$inc"
 }
 
+# The sdist is unpacked (and prepare_source run) again whenever the recipe
+# changes, so an edit to prepare_source never builds over a tree an older
+# one patched.
 fetch_sdist() {
   mkdir -p "$SRC"
-  if [ ! -f "$SRC/src/.unpacked" ]; then
+  local recipe
+  recipe=$(shasum "$HERE/recipes/$NAME.sh" | cut -c1-12)
+  if [ "$(cat "$SRC/src/.unpacked" 2>/dev/null)" != "$recipe" ]; then
     # SDIST_URL and SDIST_SHA256 pin the sdist itself; pip can't fetch one
     # whose metadata step needs the target's libraries (shapely's GEOS).
     if [ -n "$SDIST_URL" ]; then
@@ -159,7 +164,7 @@ fetch_sdist() {
         (cd "$SRC/src" && "$VENV/bin/cython" -3 -X embedsignature=True $CYTHON_FLAGS "$pyx" -o "${pyx%.pyx}.c")
       fi
     done
-    touch "$SRC/src/.unpacked"
+    echo "$recipe" > "$SRC/src/.unpacked"
   fi
 }
 
@@ -279,7 +284,7 @@ INI
   (cd "$SRC/src" && PATH=$D/crossbin:$VENV/bin:$PATH "$D/cross-python" "$meson" setup "$build" \
       --cross-file "$D/wasi-cross.ini" --buildtype=release -Db_ndebug=true $options)
   # Compile everything; shared-module link steps fail on WASI and are ignored.
-  PATH=$D/crossbin:$VENV/bin:$PATH ninja -C "$build" -k 0 >"$build/ninja.log" 2>&1 || true
+  PATH=$D/crossbin:$VENV/bin:$PATH ninja -C "$build" -j"$NCPU" -k 0 >"$build/ninja.log" 2>&1 || true
   if grep -q "error:" "$build/ninja.log" && grep -B2 "error:" "$build/ninja.log" | grep -q "\.o$\|\.c\b\|\.cpp\b"; then
     grep -m5 -B3 "error:" "$build/ninja.log" >&2
   fi
