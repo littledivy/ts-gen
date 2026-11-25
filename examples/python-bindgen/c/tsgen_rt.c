@@ -12,8 +12,8 @@ IMPORT("tsgen", "tsgen_table_grow") int32_t tsgen_table_grow(int32_t n);
 IMPORT("tsgen", "tsgen_ref_clear") void tsgen_ref_clear(int32_t base, int32_t n);
 IMPORT("tsgen", "tsgen_ref_copy") void tsgen_ref_copy(int32_t dst, int32_t src);
 // The bridge's future operations (IR.md §16), through the shim.
-IMPORT("tsgen", "tw:future::poll") int32_t tsgen_future_poll(int32_t f, int32_t waker);
-IMPORT("tsgen", "tw:future::wait") void tsgen_future_wait(int32_t waker);
+IMPORT("tsgen", "tw:future::suspend") int32_t tsgen_future_suspend(int32_t f);
+IMPORT("tsgen", "tw:future::suspend_race") int32_t tsgen_future_suspend_race(int32_t base, int32_t n);
 IMPORT("tsgen", "tw:future::drop") void tsgen_future_drop(int32_t f);
 IMPORT("tsgen", "tw:future::new") void tsgen_future_new(void *ret);
 IMPORT("tsgen", "tw:future::resolve<unit>") void tsgen_future_resolve_unit(int32_t resolver);
@@ -156,7 +156,6 @@ struct task {
 
 static task *current, *suspended;
 static int depth, running;
-static int32_t next_waker = 1;
 // The stack pointer the export saw on entry (tsgen_note_entry).
 static uintptr_t entry_sp;
 // The stack pointer while no C code runs, where the next call from JS
@@ -181,7 +180,6 @@ int tsgen_depth(void) { return depth; }
 
 // For the shim: whether C code is running now (not suspended in a wait).
 EXPORT("cfts_running") int32_t tsgen_running(void) { return running; }
-EXPORT("cfts_waker") int32_t tsgen_waker(void) { return next_waker++; }
 
 void tsgen_note_entry(void) { entry_sp = tsgen_get_sp(); }
 
@@ -266,8 +264,7 @@ static void hold_back(void) {
     if (!held) abort();
   }
   held[n_held++] = r;
-  int32_t w = next_waker++;
-  if (tsgen_future_poll(f, w) == 0) tsgen_future_wait(w);
+  tsgen_future_suspend(f);
   tsgen_future_drop(f);
   tsgen_slot_free(f);
 }
@@ -277,10 +274,11 @@ static void release_held(void) {
   while (n_held) tsgen_release(held[--n_held]);
 }
 
-// One wait for the waker: the call suspends, and resumes with its stack
-// where it was. After the wait returns, nothing reads this function's
-// shadow stack frame before bring_back has restored it.
-__attribute__((noinline)) static void suspend(int32_t w) {
+// One race of the futures in slots base to base+n-1: the call suspends, and
+// resumes with its stack where it was. Returns the index suspend_race
+// does. After the race returns, nothing reads this function's shadow stack
+// frame before bring_back has restored it.
+__attribute__((noinline)) static int suspend(int32_t base, int32_t n) {
   task *t = current;
   t->low = tsgen_get_sp();
   t->resident = 1;
@@ -305,7 +303,7 @@ __attribute__((noinline)) static void suspend(int32_t w) {
     idle_sp = tsgen_get_sp();
     release_held();
   }
-  tsgen_future_wait(w);
+  int ready = tsgen_future_suspend_race(base, n);
   // JS can run the job that resumes this from inside an import another
   // call made, with that call's C code still on the stack (and its stack
   // pointer, below which this waits without touching memory above it).
@@ -317,17 +315,15 @@ __attribute__((noinline)) static void suspend(int32_t w) {
   current = t;
   running = 1;
   tsgen_lang_resume(t->lang);
+  return ready;
 }
 
 int tsgen_wait_any(const int32_t *fs, int n) {
-  int32_t w = next_waker++;
-  for (;;) {
-    for (int i = 0; i < n; i++) {
-      if (tsgen_future_poll(fs[i], w) != 0) return i;
-    }
-    suspend(w);
-  }
+  // suspend_race takes a range of slots.
+  int32_t base = tsgen_range_alloc(n);
+  for (int i = 0; i < n; i++) tsgen_ref_copy(base + i, fs[i]);
+  int ready = suspend(base, n);
+  tsgen_range_free(base, n);
+  if (ready < 0) abort();  // a future dropped while awaited
+  return ready;
 }
-
-// A wake no wait holds: the module polls again whenever it next waits.
-EXPORT("tw:future/wake") void tsgen_wake(int32_t waker) { (void)waker; }

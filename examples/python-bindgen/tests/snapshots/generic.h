@@ -76,14 +76,14 @@ TW_IMPORT("./runtime/generic.js::box(Arg)") int32_t tw_box(int32_t, int32_t, dou
 TW_IMPORT("./runtime/generic.js::failure(str)") int32_t tw_failure(int32_t, int32_t);
 // ("./runtime/generic.js", "settle(Any?)")
 TW_IMPORT("./runtime/generic.js::settle(Any?)") int32_t tw_settle(int32_t);
-// ("tw:future", "poll")
-TW_IMPORT("tw:future::poll") int32_t tw_future_poll(int32_t, int32_t);
 // ("tw:future", "drop")
 TW_IMPORT("tw:future::drop") void tw_future_drop(int32_t);
 // ("tw:future", "new")
 TW_IMPORT("tw:future::new") void tw_future_new(tw_slot *ret);
-// ("tw:future", "wait")
-TW_IMPORT("tw:future::wait") void tw_future_wait(int32_t);
+// ("tw:future", "suspend")
+TW_IMPORT("tw:future::suspend") int32_t tw_future_suspend(int32_t);
+// ("tw:future", "suspend_race")
+TW_IMPORT("tw:future::suspend_race") int32_t tw_future_suspend_race(int32_t, int32_t);
 // ("tw:future", "take<Value>")
 TW_IMPORT("tw:future::take<Value>") void tw_future_take_Value(int32_t, tw_slot *ret);
 // ("tw:future", "resolve<Value>")
