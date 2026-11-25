@@ -1,0 +1,15 @@
+// Declarations go-bindgen's Go runtime (runtime.go) needs, appended to the
+// IR ts-gen writes (`go-bindgen runtime-ir >> app.ir`). They name no API of
+// their own.
+
+/// Go runtime: JSON text of JS values, for encoding/json.
+@js(name = "JSON")
+namespace TsgenJSON {
+  stringify(value: Any?): str? throws;
+  parse(text: str): Any? throws;
+}
+/// Go runtime: a caught JS exception's name and message.
+interface TsgenError {
+  get name(): str?;
+  get message(): str?;
+}

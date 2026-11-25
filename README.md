@@ -64,6 +64,7 @@ real compilers.
 | Swift (wasm32-wasip1) | `all-linear, jspi = on` | [examples/swift-bindgen](examples/swift-bindgen) | imports, exports, closures and async (JSPI), through the bridge and a shim |
 | Zena | `all-gc` with host strings | [examples/zena-bindgen](examples/zena-bindgen) | imports, monomorphized generics |
 | Zig | `all-linear, jspi = on` | [examples/zig-bindgen](examples/zig-bindgen) | imports, exports and async (blocking, through JSPI), through a shim and the bridge |
+| Go | `all-linear, jspi = on` | [examples/go-bindgen](examples/go-bindgen) | imports, exports, callbacks; futures as blocking calls |
 
 **Kotlin**: `kotlin-bindgen <lowered.json> <out-dir> [--package <pkg>]
 [--runtime]` writes Kotlin externals from `ts-gen-abi lower`'s JSON. It also
@@ -86,6 +87,13 @@ name `externref`. Build the generator with `zig build` in
 `examples/zig-bindgen` (Zig 0.17). [examples/zig-bindgen/example](examples/zig-bindgen/example)
 runs a Worker end to end.
 
+**Go**: `go-bindgen bindings <lowered.json> --out <dir> [--package <pkg>]`
+writes a Go package, and `go-bindgen shim` the module that adapts a wasip1
+build to the `tw` ABI, merged in with wasm-merge. Calls block their
+goroutine on futures, under JSPI. Build it with `go build` in
+`examples/go-bindgen` (Go 1.24+). [examples/go-bindgen/example](examples/go-bindgen/example)
+runs a Worker end to end.
+
 **Zena**: `zena-bindgen <input.ir> [-o <out.zena>]` writes `@external`
 declarations. They need the Zena compiler fork with the `tw` option on
 `@external`.
@@ -96,6 +104,7 @@ declarations. They need the Zena compiler fork with the `tw` option on
 just test          # unit, snapshot and bridge runtime tests (Node 26)
 just test-kotlin   # the Kotlin generator: snapshots, Kotlin/Wasm compiles, runtime (JDK 21, Node 26)
 just test-swift    # the Swift generator: snapshots, wasm32-wasip1 compiles, the worker (Swift SDK for WASI, wasm-merge, Node 26)
+just test-go       # the Go generator: snapshots, wasip1 vet, its JSON codec, runtime (Go 1.24+, Node 26, wasm-tools, wasm-merge)
 just test-zena     # the Zena generator; compiles with ZENA=<zena-cli> ZENA_REPO_ROOT=<checkout>
 just test-zig      # the Zig generator: snapshots, wasm32 compiles, the worker (Zig 0.17, binaryen, Node 26)
 just test-integration  # wasm-bindgen integration (wasm32 target, wasm-bindgen-cli)

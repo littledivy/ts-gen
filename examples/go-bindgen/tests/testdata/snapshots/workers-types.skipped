@@ -1,0 +1,24 @@
+AsyncIterator#next(arr<AnyOrTuple>): arr element AnyOrTuple
+Blob.new(arr<BlobTypeKind>): arr element BlobTypeKind
+Blob.new(arr<BlobTypeKind>?,BlobOptions): arr element BlobTypeKind
+Container#setInactivityTimeout(F64OrBigInt): enum F64OrBigInt: kind bigint
+ContainerStartupOptions.HardTimeout: enum F64OrBigInt: kind bigint
+D1PreparedStatementOptions.ColumnNamesTrue: a property without a getter or a one-value setter
+D1PreparedStatementRawOptions.ColumnNamesFalse: a property without a getter or a one-value setter
+D1Response.SuccessTrue: a property without a getter or a one-value setter
+D1Result.SuccessTrue: a property without a getter or a one-value setter
+DurableObjectState#blockConcurrencyWhile(fn()->future<T>): a callback returning a future
+DurableObjectStorage#transaction(fn(DurableObjectTransaction)->future<T>): a callback returning a future
+File.new(arr<BlobTypeKind>?,str): arr element BlobTypeKind
+File.new(arr<BlobTypeKind>?,str,FileOptions): arr element BlobTypeKind
+FormData#getAll(str): arr element FileOrStr
+Iterator#next(arr<AnyOrTuple>): arr element AnyOrTuple
+QueuingStrategy.HighWaterMark: enum F64OrBigInt: kind bigint
+QueuingStrategy.Size: enum F64OrBigInt: kind bigint
+ReadableStreamGetReaderOptions.ModeByob: a property without a getter or a one-value setter
+SocketOptions.HighWaterMark: enum F64OrBigInt: kind bigint
+UnderlyingByteSource.TypeBytes: a property without a getter or a one-value setter
+UnderlyingSource.ExpectedLength: enum F64OrBigInt: kind bigint
+UnderlyingSource.TypeEmpty: a property without a getter or a one-value setter
+enum AnyOrTuple: tuple of 1
+enum F64OrBigInt: kind bigint

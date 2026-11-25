@@ -89,3 +89,7 @@ path = "examples/swift-bindgen/tests/swift.rs"
 [[test]]
 name = "zig"
 path = "examples/zig-bindgen/tests/zig.rs"
+
+[[test]]
+name = "go"
+path = "examples/go-bindgen/tests/go.rs"

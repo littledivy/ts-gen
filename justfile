@@ -37,6 +37,10 @@ test-kotlin *ARGS="":
 test-swift *ARGS="":
     RUST_BACKTRACE=1 cargo +stable test -p ts-gen --test swift {{ARGS}}
 
+# Run the Go example generator's tests: snapshots, wasip1 vet, the JSON codec and runtime (requires Go 1.24+, Node 26, wasm-tools, wasm-merge)
+test-go *ARGS="":
+    RUST_BACKTRACE=1 cargo +stable test -p ts-gen --test go {{ARGS}}
+
 # Run the Zena example generator's tests; ZENA (a zena-cli) and ZENA_REPO_ROOT enable the compile checks (requires Node 26), WORKERD or a workerd on PATH the example's workerd tour
 test-zena *ARGS="":
     RUST_BACKTRACE=1 cargo +stable test -p zena-bindgen {{ARGS}}
