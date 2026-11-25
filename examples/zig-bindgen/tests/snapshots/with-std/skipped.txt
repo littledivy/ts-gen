@@ -1,0 +1,6 @@
+RegExp#replace(str,fn(str,...arr<Any?>)->str): callback fn(str,...arr<Any?>)->str with several results
+Iterator#next(arr<AnyOrTuple>): arr of AnyOrTuple
+Iterator#next(arr<AnyOrTuple>): arr of AnyOrTuple
+Iterator#next(arr<AnyOrTuple>): arr of AnyOrTuple
+Iterator#next(arr<AnyOrTuple>): arr of AnyOrTuple
+store(Store<unit>): never

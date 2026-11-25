@@ -1,0 +1,4 @@
+Init#get:signal(): T??
+nested(future<str?>,arr<str?>,Record<Str?>,fn(str?)->str?): str? in arr
+lead(str??,f64): T??
+leadOpt(str??,f64): T??

@@ -1,0 +1,19 @@
+== GET /
+Hello from Zig on node
+routes: /echo /url /json /rewrite /errors /fetch /counter
+
+== POST /echo
+POST from hi: Hello!
+
+== GET /url?tag=a&tag=b&q=zig
+path /url, q=zig, tags a,b
+
+== POST /json
+{"item":"tea","quantity":2,"tags":2,"letters":8}
+
+== POST /json (not an order)
+the value doesn't decode as app.Order: quantity is missing
+
+== GET /errors
+atob: Invalid character
+URL: TypeError: Invalid URL

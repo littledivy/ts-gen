@@ -1,0 +1,6 @@
+KVNamespace#list(str?,u32?): Str in arr
+methodOf(Method,Flags?): a nullable carrier enum
+crypto.getRandomValues(mut u8[]): a writeback sequence
+Counter.create(): handle
+stats.total(): an export returning a future of i64
+stats.size(): an export returning a future of u64

@@ -53,7 +53,7 @@ that JS can't read. See [bridge/README.md](bridge/README.md).
 
 `ts-gen` itself generates Rust. Other languages are their own projects: a
 generator reads the IR, or `ts-gen-abi lower`'s JSON, and the bridge
-supplies the JS side. Three example generators live under
+supplies the JS side. Example generators live under
 [examples](examples), to check the IR, the profiles and the bridge against
 real compilers.
 
@@ -63,6 +63,7 @@ real compilers.
 | Kotlin/Wasm | `all-host, results = single, throws = js` | [examples/kotlin-bindgen](examples/kotlin-bindgen) | imports, exports and async, through the bridge |
 | Swift (wasm32-wasip1) | `all-linear, jspi = on` | [examples/swift-bindgen](examples/swift-bindgen) | imports, exports, closures and async (JSPI), through the bridge and a shim |
 | Zena | `all-gc` with host strings | [examples/zena-bindgen](examples/zena-bindgen) | imports, monomorphized generics |
+| Zig | `all-linear, jspi = on` | [examples/zig-bindgen](examples/zig-bindgen) | imports, exports and async (blocking, through JSPI), through a shim and the bridge |
 
 **Kotlin**: `kotlin-bindgen <lowered.json> <out-dir> [--package <pkg>]
 [--runtime]` writes Kotlin externals from `ts-gen-abi lower`'s JSON. It also
@@ -78,6 +79,13 @@ name `externref`. Build the generator with `swift build -c release` in
 `examples/swift-bindgen`. [examples/swift-bindgen/example](examples/swift-bindgen/example)
 runs a Worker end to end.
 
+**Zig**: `zig-bindgen bindings <lowered.json> --out <dir> [--runtime]`
+writes Zig bindings from `ts-gen-abi lower`'s JSON, and `zig-bindgen shim`
+the WAT that adapts the compiled module to the `tw` ABI, since Zig can't
+name `externref`. Build the generator with `zig build` in
+`examples/zig-bindgen` (Zig 0.17). [examples/zig-bindgen/example](examples/zig-bindgen/example)
+runs a Worker end to end.
+
 **Zena**: `zena-bindgen <input.ir> [-o <out.zena>]` writes `@external`
 declarations. They need the Zena compiler fork with the `tw` option on
 `@external`.
@@ -89,16 +97,18 @@ just test          # unit, snapshot and bridge runtime tests (Node 26)
 just test-kotlin   # the Kotlin generator: snapshots, Kotlin/Wasm compiles, runtime (JDK 21, Node 26)
 just test-swift    # the Swift generator: snapshots, wasm32-wasip1 compiles, the worker (Swift SDK for WASI, wasm-merge, Node 26)
 just test-zena     # the Zena generator; compiles with ZENA=<zena-cli> ZENA_REPO_ROOT=<checkout>
+just test-zig      # the Zig generator: snapshots, wasm32 compiles, the worker (Zig 0.17, binaryen, Node 26)
 just test-integration  # wasm-bindgen integration (wasm32 target, wasm-bindgen-cli)
 just fmt-check && just clippy
 ```
 
-`just test` runs the Kotlin, Swift and Zena tests too when their tools are
-present, and skips them otherwise. Under `CI` a missing Kotlin or Zena tool
-is a failure, unless `TSGEN_SKIP_KOTLIN` or `TSGEN_SKIP_ZENA` is set. The
-main CI job sets both, and separate jobs run each toolchain. A missing
-Swift tool fails only under `TSGEN_REQUIRE_SWIFT`; `TSGEN_SKIP_SWIFT` skips
-the Swift tests outright. `BLESS=1` re-blesses snapshots.
+`just test` runs the Kotlin, Swift, Zena and Zig tests too when their
+tools are present, and skips them otherwise. Under `CI` a missing Kotlin or
+Zena tool is a failure, unless `TSGEN_SKIP_KOTLIN` or `TSGEN_SKIP_ZENA` is
+set. The main CI job sets both, and separate jobs run each toolchain. A
+missing Swift or Zig tool fails only under `TSGEN_REQUIRE_SWIFT` or
+`TSGEN_REQUIRE_ZIG`; `TSGEN_SKIP_SWIFT` and `TSGEN_SKIP_ZIG` skip those
+tests outright. `BLESS=1` re-blesses snapshots.
 
 ## Rust (wasm-bindgen)
 

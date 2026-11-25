@@ -1,0 +1,32 @@
+== GET /
+Hello from Zig on workerd
+routes: /echo /url /json /rewrite /errors /fetch /counter
+
+== POST /echo
+POST from hi: Hello!
+
+== GET /url?tag=a&tag=b&q=zig
+path /url, q=zig, tags a,b
+
+== POST /json
+{"item":"tea","quantity":2,"tags":2,"letters":8}
+
+== POST /json (not an order)
+the value doesn't decode as app.Order: quantity is missing
+
+== GET /rewrite
+<a href="/x" data-seen="zig">x</a> <a href="/y" data-seen="zig">y</a>
+links: /x /y
+
+== GET /errors
+atob: atob() called with invalid base64-encoded data. (Only whitespace, '+', '/', alphanumeric ASCII, and up to two terminal '=' signs when the input data length is divisible by 4 are allowed.)
+URL: TypeError: Invalid URL string.
+
+== GET /fetch
+200: GET /hello, from the backend
+
+== GET /counter
+count 1, 1 visits, last 1
+
+== GET /counter (again)
+count 2, 2 visits, last 2

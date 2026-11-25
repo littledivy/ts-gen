@@ -76,6 +76,7 @@ walkdir = { version = "2", optional = true }
 serde_json = "1"
 similar = "2"
 wasmparser = "0.263"
+wat = "1.263"
 
 [[test]]
 name = "kotlin"
@@ -84,3 +85,7 @@ path = "examples/kotlin-bindgen/tests/kotlin.rs"
 [[test]]
 name = "swift"
 path = "examples/swift-bindgen/tests/swift.rs"
+
+[[test]]
+name = "zig"
+path = "examples/zig-bindgen/tests/zig.rs"

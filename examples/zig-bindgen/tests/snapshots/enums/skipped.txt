@@ -1,0 +1,2 @@
+big(bigint): bigint
+Color.get:all(): arr of Color

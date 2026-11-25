@@ -1,0 +1,192 @@
+TailStream.TraceEventInfo#get:traces(): str? in arr
+TailStream.Attribute#get:value(): enum AttributeValueKind: bigint
+TailStream.TailEventHandlerObject#get:outcome(): a JS function as a result
+TailStream.TailEventHandlerObject#get:spanOpen(): a JS function as a result
+TailStream.TailEventHandlerObject#get:spanClose(): a JS function as a result
+TailStream.TailEventHandlerObject#get:diagnosticChannel(): a JS function as a result
+TailStream.TailEventHandlerObject#get:exception(): a JS function as a result
+TailStream.TailEventHandlerObject#get:log(): a JS function as a result
+TailStream.TailEventHandlerObject#get:return(): a JS function as a result
+TailStream.TailEventHandlerObject#get:attributes(): a JS function as a result
+ExportedHandler#get:fetch(): a JS function as a result
+ExportedHandler#set:fetch(fn(Request<CfHostMetadata,IncomingRequestCfProperties<CfHostMetadata>>,Env,ExecutionContext<Props>)->ResponseOrFuture): callback fn(Request<CfHostMetadata,IncomingRequestCfProperties<CfHostMetadata>>,Env,ExecutionContext<Props>)->ResponseOrFuture with several results
+ExportedHandler#get:tail(): a JS function as a result
+ExportedHandler#get:trace(): a JS function as a result
+ExportedHandler#get:tailStream(): a JS function as a result
+ExportedHandler#set:tailStream(fn(TailStream.TailEvent<TailStream.Onset>,Env,ExecutionContext<Props>)->TailEventHandlerTypeOrFuture): callback fn(TailStream.TailEvent<TailStream.Onset>,Env,ExecutionContext<Props>)->TailEventHandlerTypeOrFuture with several results
+ExportedHandler#get:scheduled(): a JS function as a result
+ExportedHandler#get:test(): a JS function as a result
+ExportedHandler#get:email(): a JS function as a result
+ExportedHandler#get:queue(): a JS function as a result
+DurableObject#fetch(Request<Any?,CfProperties>): enum ResponseOrFuture: a future in a nested position
+DurableObjectState#blockConcurrencyWhile(fn()->future<T>): a callback returning a future
+DurableObjectStorage#transaction(fn(DurableObjectTransaction)->future<T>): a callback returning a future
+AnalyticsEngineDataPoint#get:indexes(): arr of ArrayBufferOrStr?
+AnalyticsEngineDataPoint#set:indexes(arr<ArrayBufferOrStr?>): arr of ArrayBufferOrStr?
+AnalyticsEngineDataPoint#get:blobs(): arr of ArrayBufferOrStr?
+AnalyticsEngineDataPoint#set:blobs(arr<ArrayBufferOrStr?>): arr of ArrayBufferOrStr?
+EventTargetHandlerObject#get:handleEvent(): a JS function as a result
+Blob.new(arr<BlobTypeKind>): arr of BlobTypeKind
+Blob.new(arr<BlobTypeKind>?,BlobOptions): arr of BlobTypeKind
+File.new(arr<BlobTypeKind>?,str): arr of BlobTypeKind
+File.new(arr<BlobTypeKind>?,str,FileOptions): arr of BlobTypeKind
+DigestStream#get:bytesWritten(): enum F64OrBigInt: bigint
+FormData#getAll(str): arr of FileOrStr
+HTMLRewriterElementContentHandlers#get:element(): a JS function as a result
+HTMLRewriterElementContentHandlers#get:comments(): a JS function as a result
+HTMLRewriterElementContentHandlers#get:text(): a JS function as a result
+HTMLRewriterDocumentContentHandlers#get:doctype(): a JS function as a result
+HTMLRewriterDocumentContentHandlers#get:comments(): a JS function as a result
+HTMLRewriterDocumentContentHandlers#get:text(): a JS function as a result
+HTMLRewriterDocumentContentHandlers#get:end(): a JS function as a result
+FetchEvent#respondWith(ResponseOrFuture): enum ResponseOrFuture: a future in a nested position
+QueuingStrategy#get:highWaterMark(): enum F64OrBigInt: bigint
+QueuingStrategy#set:highWaterMark(F64OrBigInt): enum F64OrBigInt: bigint
+QueuingStrategy#get:size(): a JS function as a result
+QueuingStrategy#set:size(fn(T)->F64OrBigInt): callback fn(T)->F64OrBigInt with several results
+UnderlyingSink#get:start(): a JS function as a result
+UnderlyingSink#get:write(): a JS function as a result
+UnderlyingSink#get:abort(): a JS function as a result
+UnderlyingSink#get:close(): a JS function as a result
+UnderlyingByteSource#get:start(): a JS function as a result
+UnderlyingByteSource#get:pull(): a JS function as a result
+UnderlyingByteSource#get:cancel(): a JS function as a result
+UnderlyingSource#get:start(): a JS function as a result
+UnderlyingSource#get:pull(): a JS function as a result
+UnderlyingSource#get:cancel(): a JS function as a result
+UnderlyingSource#get:expectedLength(): enum F64OrBigInt: bigint
+UnderlyingSource#set:expectedLength(F64OrBigInt): enum F64OrBigInt: bigint
+Transformer#get:start(): a JS function as a result
+Transformer#get:transform(): a JS function as a result
+Transformer#get:flush(): a JS function as a result
+Transformer#get:cancel(): a JS function as a result
+FixedLengthStream.new(F64OrBigInt): enum F64OrBigInt: bigint
+FixedLengthStream.new(F64OrBigInt,IdentityTransformStreamQueuingStrategy): enum F64OrBigInt: bigint
+IdentityTransformStreamQueuingStrategy#get:highWaterMark(): enum F64OrBigInt: bigint
+IdentityTransformStreamQueuingStrategy#set:highWaterMark(F64OrBigInt): enum F64OrBigInt: bigint
+ByteLengthQueuingStrategy#get:size(): a JS function as a result
+CountQueuingStrategy#get:size(): a JS function as a result
+URLPatternResult#get:inputs(): arr of StrOrURLPatternInit
+URLPatternResult#set:inputs(arr<StrOrURLPatternInit>): arr of StrOrURLPatternInit
+SocketOptions#get:highWaterMark(): enum F64OrBigInt: bigint
+SocketOptions#set:highWaterMark(F64OrBigInt): enum F64OrBigInt: bigint
+Container#setInactivityTimeout(F64OrBigInt): enum F64OrBigInt: bigint
+ContainerStartupOptions#get:hardTimeout(): enum F64OrBigInt: bigint
+ContainerStartupOptions#set:hardTimeout(F64OrBigInt): enum F64OrBigInt: bigint
+WorkerLoader#get(str?,fn()->GetCodeKind): callback fn()->GetCodeKind with several results
+AiIMultimodalEmbeddingsOutput#get:data(): arr of arr<f64>
+AiIMultimodalEmbeddingsOutput#set:data(arr<arr<f64>>): arr of arr<f64>
+AiTextEmbeddingsOutput#get:data(): arr of arr<f64>
+AiTextEmbeddingsOutput#set:data(arr<arr<f64>>): arr of arr<f64>
+ResponsesInput#get:input(): enum StrOrResponseInputItemArray: arr of ResponseInputItem
+ResponsesInput#set:input(StrOrResponseInputItemArray): enum StrOrResponseInputItemArray: arr of ResponseInputItem
+ResponsesOutput#get:instructions(): enum StrOrResponseInputItemArray: arr of ResponseInputItem
+ResponsesOutput#set:instructions(StrOrResponseInputItemArray?): enum StrOrResponseInputItemArray: arr of ResponseInputItem
+ResponsesOutput#get:output(): arr of ResponseOutputItem
+ResponsesOutput#set:output(arr<ResponseOutputItem>): arr of ResponseOutputItem
+EasyInputMessage#get:content(): enum StrOrResponseInputContentArray: arr of ResponseInputContent
+EasyInputMessage#set:content(StrOrResponseInputContentArray): enum StrOrResponseInputContentArray: arr of ResponseInputContent
+ResponseCustomToolCallOutput#get:output(): enum StrOrResponseInputContentArray: arr of ResponseInputContent
+ResponseCustomToolCallOutput#set:output(StrOrResponseInputContentArray): enum StrOrResponseInputContentArray: arr of ResponseInputContent
+ResponseFunctionToolCallOutputItem#get:output(): enum StrOrResponseInputContentArray: arr of ResponseInputContent
+ResponseFunctionToolCallOutputItem#set:output(StrOrResponseInputContentArray): enum StrOrResponseInputContentArray: arr of ResponseInputContent
+ResponseInputItemFunctionCallOutput#get:output(): enum ResponseInputItemFunctionCallOutputKind: arr of ResponseFunctionCallOutputItem
+ResponseInputItemFunctionCallOutput#set:output(ResponseInputItemFunctionCallOutputKind): enum ResponseInputItemFunctionCallOutputKind: arr of ResponseFunctionCallOutputItem
+ResponseInputItemMessage#get:content(): arr of ResponseInputContent
+ResponseInputItemMessage#set:content(arr<ResponseInputContent>): arr of ResponseInputContent
+ResponseInputMessageItem#get:content(): arr of ResponseInputContent
+ResponseInputMessageItem#set:content(arr<ResponseInputContent>): arr of ResponseInputContent
+ResponseOutputMessage#get:content(): arr of ResponseOutputMessageContentKind
+ResponseOutputMessage#set:content(arr<ResponseOutputMessageContentKind>): arr of ResponseOutputMessageContentKind
+Ai_Cf_Baai_Bge_M3_Output_EmbeddingFor_Contexts#get:response(): arr of arr<f64>
+Ai_Cf_Baai_Bge_M3_Output_EmbeddingFor_Contexts#set:response(arr<arr<f64>>): arr of arr<f64>
+Ai_Cf_Baai_Bge_M3_Ouput_Embedding#get:data(): arr of arr<f64>
+Ai_Cf_Baai_Bge_M3_Ouput_Embedding#set:data(arr<arr<f64>>): arr of arr<f64>
+Ai_Cf_Meta_Llama_3_2_11B_Vision_Instruct_Messages#get:tools(): arr of AiCfMetaLlama3211BVisionInstructMessagesToolsKind
+Ai_Cf_Meta_Llama_3_2_11B_Vision_Instruct_Messages#set:tools(arr<AiCfMetaLlama3211BVisionInstructMessagesToolsKind>): arr of AiCfMetaLlama3211BVisionInstructMessagesToolsKind
+Ai_Cf_Meta_Llama_3_3_70B_Instruct_Fp8_Fast_Messages#get:tools(): arr of AiCfMetaLlama3370BInstructFp8FastMessagesToolsKind
+Ai_Cf_Meta_Llama_3_3_70B_Instruct_Fp8_Fast_Messages#set:tools(arr<AiCfMetaLlama3370BInstructFp8FastMessagesToolsKind>): arr of AiCfMetaLlama3370BInstructFp8FastMessagesToolsKind
+Ai_Cf_Qwen_Qwen2_5_Coder_32B_Instruct_Messages#get:tools(): arr of AiCfQwenQwen25Coder32BInstructMessagesToolsKind
+Ai_Cf_Qwen_Qwen2_5_Coder_32B_Instruct_Messages#set:tools(arr<AiCfQwenQwen25Coder32BInstructMessagesToolsKind>): arr of AiCfQwenQwen25Coder32BInstructMessagesToolsKind
+Ai_Cf_Qwen_Qwq_32B_Messages#get:tools(): arr of AiCfQwenQwq32BMessagesToolsKind
+Ai_Cf_Qwen_Qwq_32B_Messages#set:tools(arr<AiCfQwenQwq32BMessagesToolsKind>): arr of AiCfQwenQwq32BMessagesToolsKind
+Ai_Cf_Mistralai_Mistral_Small_3_1_24B_Instruct_Messages#get:tools(): arr of AiCfMistralaiMistralSmall3124BInstructMessagesToolsKind
+Ai_Cf_Mistralai_Mistral_Small_3_1_24B_Instruct_Messages#set:tools(arr<AiCfMistralaiMistralSmall3124BInstructMessagesToolsKind>): arr of AiCfMistralaiMistralSmall3124BInstructMessagesToolsKind
+Ai_Cf_Google_Gemma_3_12B_It_Messages#get:tools(): arr of AiCfGoogleGemma312BItMessagesToolsKind
+Ai_Cf_Google_Gemma_3_12B_It_Messages#set:tools(arr<AiCfGoogleGemma312BItMessagesToolsKind>): arr of AiCfGoogleGemma312BItMessagesToolsKind
+Ai_Cf_Meta_Llama_4_Scout_17B_16E_Instruct_Messages#get:tools(): arr of AiCfMetaLlama4Scout17B16EInstructMessagesToolsKind
+Ai_Cf_Meta_Llama_4_Scout_17B_16E_Instruct_Messages#set:tools(arr<AiCfMetaLlama4Scout17B16EInstructMessagesToolsKind>): arr of AiCfMetaLlama4Scout17B16EInstructMessagesToolsKind
+Ai_Cf_Meta_Llama_4_Scout_17B_16E_Instruct_Async_Batch#get:requests(): arr of AiCfMetaLlama4Scout17B16EInstructAsyncBatchRequestsKind
+Ai_Cf_Meta_Llama_4_Scout_17B_16E_Instruct_Async_Batch#set:requests(arr<AiCfMetaLlama4Scout17B16EInstructAsyncBatchRequestsKind>): arr of AiCfMetaLlama4Scout17B16EInstructAsyncBatchRequestsKind
+Ai_Cf_Meta_Llama_4_Scout_17B_16E_Instruct_Messages_Inner#get:tools(): arr of AiCfMetaLlama4Scout17B16EInstructMessagesInnerToolsKind
+Ai_Cf_Meta_Llama_4_Scout_17B_16E_Instruct_Messages_Inner#set:tools(arr<AiCfMetaLlama4Scout17B16EInstructMessagesInnerToolsKind>): arr of AiCfMetaLlama4Scout17B16EInstructMessagesInnerToolsKind
+Ai_Cf_Qwen_Qwen3_30B_A3B_Fp8_Messages#get:tools(): arr of AiCfQwenQwen330BA3BFp8MessagesToolsKind
+Ai_Cf_Qwen_Qwen3_30B_A3B_Fp8_Messages#set:tools(arr<AiCfQwenQwen330BA3BFp8MessagesToolsKind>): arr of AiCfQwenQwen330BA3BFp8MessagesToolsKind
+Ai_Cf_Qwen_Qwen3_30B_A3B_Fp8_Async_Batch#get:requests(): arr of AiCfQwenQwen330BA3BFp8AsyncBatchRequestsKind
+Ai_Cf_Qwen_Qwen3_30B_A3B_Fp8_Async_Batch#set:requests(arr<AiCfQwenQwen330BA3BFp8AsyncBatchRequestsKind>): arr of AiCfQwenQwen330BA3BFp8AsyncBatchRequestsKind
+Ai_Cf_Qwen_Qwen3_30B_A3B_Fp8_Messages_1#get:tools(): arr of AiCfQwenQwen330BA3BFp8Messages1ToolsKind
+Ai_Cf_Qwen_Qwen3_30B_A3B_Fp8_Messages_1#set:tools(arr<AiCfQwenQwen330BA3BFp8Messages1ToolsKind>): arr of AiCfQwenQwen330BA3BFp8Messages1ToolsKind
+Ai_Cf_Qwen_Qwen3_Embedding_0_6B_Output#get:data(): arr of arr<f64>
+Ai_Cf_Qwen_Qwen3_Embedding_0_6B_Output#set:data(arr<arr<f64>>): arr of arr<f64>
+Ai_Cf_Aisingapore_Gemma_Sea_Lion_V4_27B_It_Messages#get:tools(): arr of AiCfAisingaporeGemmaSeaLionV427BItMessagesToolsKind
+Ai_Cf_Aisingapore_Gemma_Sea_Lion_V4_27B_It_Messages#set:tools(arr<AiCfAisingaporeGemmaSeaLionV427BItMessagesToolsKind>): arr of AiCfAisingaporeGemmaSeaLionV427BItMessagesToolsKind
+Ai_Cf_Aisingapore_Gemma_Sea_Lion_V4_27B_It_Async_Batch#get:requests(): arr of AiCfAisingaporeGemmaSeaLionV427BItAsyncBatchRequestsKind
+Ai_Cf_Aisingapore_Gemma_Sea_Lion_V4_27B_It_Async_Batch#set:requests(arr<AiCfAisingaporeGemmaSeaLionV427BItAsyncBatchRequestsKind>): arr of AiCfAisingaporeGemmaSeaLionV427BItAsyncBatchRequestsKind
+Ai_Cf_Aisingapore_Gemma_Sea_Lion_V4_27B_It_Messages_1#get:tools(): arr of AiCfAisingaporeGemmaSeaLionV427BItMessages1ToolsKind
+Ai_Cf_Aisingapore_Gemma_Sea_Lion_V4_27B_It_Messages_1#set:tools(arr<AiCfAisingaporeGemmaSeaLionV427BItMessages1ToolsKind>): arr of AiCfAisingaporeGemmaSeaLionV427BItMessages1ToolsKind
+Ai_Cf_Pfnet_Plamo_Embedding_1B_Output#get:data(): arr of arr<f64>
+Ai_Cf_Pfnet_Plamo_Embedding_1B_Output#set:data(arr<arr<f64>>): arr of arr<f64>
+GatewayRetries#get:maxAttempts(): a nullable carrier enum
+AiGatewayPatchLog#get:feedback(): a nullable carrier enum
+AiGatewayPatchLog#set:feedback(AiGatewayPatchLogFeedback?): a nullable carrier enum
+BasicImageTransformations#get:rotate(): a nullable carrier enum
+BasicImageTransformations#get:rotate(): a nullable carrier enum
+BasicImageTransformations#get:rotate(): a nullable carrier enum
+ImageTransform#get:rotate(): a nullable carrier enum
+EventContext#get:waitUntil(): a JS function as a result
+EventContext#set:waitUntil(fn(future<Any?>)): a future in a nested position
+EventContext#get:passThroughOnException(): a JS function as a result
+EventContext#get:next(): a JS function as a result
+EventContext#set:next(fn(RequestInfo?,RequestInit<CfProperties>?)->future<Response>): a callback returning a future
+EventPluginContext#get:waitUntil(): a JS function as a result
+EventPluginContext#set:waitUntil(fn(future<Any?>)): callback fn(future<Any?>)
+EventPluginContext#get:passThroughOnException(): a JS function as a result
+EventPluginContext#get:next(): a JS function as a result
+EventPluginContext#set:next(fn(RequestInfo?,RequestInit<CfProperties>?)->future<Response>): callback fn(RequestInfo?,RequestInit<CfProperties>?)->future<Response>
+Ai_Cf_Baai_Bge_Base_En_V1_5_OutputObject#get:data(): arr of arr<f64>
+Ai_Cf_Baai_Bge_Base_En_V1_5_OutputObject#set:data(arr<arr<f64>>): arr of arr<f64>
+Ai_Cf_Baai_Bge_Small_En_V1_5_OutputObject#get:data(): arr of arr<f64>
+Ai_Cf_Baai_Bge_Small_En_V1_5_OutputObject#set:data(arr<arr<f64>>): arr of arr<f64>
+Ai_Cf_Baai_Bge_Large_En_V1_5_OutputObject#get:data(): arr of arr<f64>
+Ai_Cf_Baai_Bge_Large_En_V1_5_OutputObject#set:data(arr<arr<f64>>): arr of arr<f64>
+Ai_Cf_Baai_Bge_M3_InputObject#get:requests(): arr of AiCfBaaiBgeM3InputObjectRequestsKind
+Ai_Cf_Baai_Bge_M3_InputObject#set:requests(arr<AiCfBaaiBgeM3InputObjectRequestsKind>): arr of AiCfBaaiBgeM3InputObjectRequestsKind
+VectorizeVectorMetadataFilterCollectionOpMap#get:$in(): arr of ExcludeVectorizeVectorMetadataValueStringArray
+VectorizeVectorMetadataFilterCollectionOpMap#set:$in(arr<ExcludeVectorizeVectorMetadataValueStringArray>): arr of ExcludeVectorizeVectorMetadataValueStringArray
+VectorizeVectorMetadataFilterCollectionOpMap#get:$nin(): arr of ExcludeVectorizeVectorMetadataValueStringArray
+VectorizeVectorMetadataFilterCollectionOpMap#set:$nin(arr<ExcludeVectorizeVectorMetadataValueStringArray>): arr of ExcludeVectorizeVectorMetadataValueStringArray
+WorkerEntrypoint#fetch(Request<Any?,CfProperties>): enum ResponseOrFuture: a future in a nested position
+WorkerEntrypoint#tailStream(TailStream.TailEvent<TailStream.Onset>): enum TailEventHandlerTypeOrFuture: enum TailStream.TailEventHandlerType: callback fn(TailStream.TailEvent<TailStream.EventType>)->future<unit>? has no trampoline
+DurableObject#fetch(Request<Any?,CfProperties>): enum ResponseOrFuture: a future in a nested position
+WorkflowStep#do(str,fn("cloudflare:workers".WorkflowStepContext)->future<T>): a callback returning a future
+WorkflowStep#do(str,"cloudflare:workers".WorkflowStepConfig,fn("cloudflare:workers".WorkflowStepContext)->future<T>): callback fn("cloudflare:workers".WorkflowStepContext)->future<T>
+WorkflowStep#get:sleep(): a JS function as a result
+WorkflowStep#set:sleep(fn(str,"cloudflare:workers".WorkflowSleepDuration)->future<unit>): a callback returning a future
+WorkflowStep#get:sleepUntil(): a JS function as a result
+WorkflowStep#set:sleepUntil(fn(str,SleepUntilKind)->future<unit>): a callback returning a future
+get:onRequest(): a JS function as a result
+WebAssembly.ExportValue: enum WebAssembly.ExportValue: callback fn()->Any? has no trampoline
+WebAssembly.ImportValue: enum WebAssembly.ImportValue: enum WebAssembly.ExportValue: callback fn()->Any? has no trampoline
+TailStream.TailEventHandlerType: enum TailStream.TailEventHandlerType: callback fn(TailStream.TailEvent<TailStream.EventType>)->future<unit>? has no trampoline
+Rpc.Stubable: enum Rpc.Stubable: callback fn(...arr<Any?>)->Any? has no trampoline
+Rpc.BaseType: enum Rpc.BaseType: bigint
+Rpc.Serializable: enum Rpc.Serializable: enum Rpc.BaseType: bigint
+ResponseOrFuture: enum ResponseOrFuture: a future in a nested position
+TailEventHandlerTypeOrFuture: enum TailEventHandlerTypeOrFuture: enum TailStream.TailEventHandlerType: callback fn(TailStream.TailEvent<TailStream.EventType>)->future<unit>? has no trampoline
+F64OrBigInt: enum F64OrBigInt: bigint
+GetCodeKind: enum GetCodeKind: a future in a nested position
+StrOrResponseInputItemArray: enum StrOrResponseInputItemArray: arr of ResponseInputItem
+StrOrResponseInputContentArray: enum StrOrResponseInputContentArray: arr of ResponseInputContent
+ResponseInputItemFunctionCallOutputKind: enum ResponseInputItemFunctionCallOutputKind: arr of ResponseFunctionCallOutputItem
+F64OrStrOrBoolOrBigInt: enum F64OrStrOrBoolOrBigInt: bigint
+AttributeValueKind: enum AttributeValueKind: bigint

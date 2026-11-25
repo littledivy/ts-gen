@@ -1,0 +1,2 @@
+DurableObject#get:alarm(): a JS function as a result
+Counter#add(f64): an export returning a future of f64
