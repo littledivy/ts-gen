@@ -121,19 +121,16 @@ func tsgen_i34(p0 float64, ret int32) int32
 func tsgen_i35(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i36
-func tsgen_i36(p0 int32, p1 int32, ret int32) int32
+func tsgen_i36(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i37
-func tsgen_i37(p0 int32, ret int32) int32
+func tsgen_i37(p0 int32, p1 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i38
-func tsgen_i38(p0 int32, p1 int32, ret int32) int32
+func tsgen_i38(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i39
 func tsgen_i39(p0 int32, ret int32) int32
-
-//go:wasmimport shim tsgen_i40
-func tsgen_i40(p0 int32, ret int32) int32
 
 // Body is the union `Body`; its arms are Str, *Blob, *Stream.
 type Body interface{ isBody() }
@@ -1300,15 +1297,8 @@ func opBoxBool(v int32) int32 {
 	return retI32(0)
 }
 
-func opPoll(f, waker int32) int32 {
-	if _st := tsgen_i36(f, waker, retPtr()); _st != 0 {
-		fail(_st)
-	}
-	return retI32(0)
-}
-
 func opJSONStringify(slot int32) (*string, error) {
-	_st := tsgen_i37(slot, retPtr())
+	_st := tsgen_i36(slot, retPtr())
 	if _st == 1 {
 		_t105_0 := retI32(0)
 		_t105_1 := retI32(1)
@@ -1328,7 +1318,7 @@ func opJSONStringify(slot int32) (*string, error) {
 }
 
 func opJSONParse(text string) (int32, error) {
-	_st := tsgen_i38(strPtr(text), int32(len(text)), retPtr())
+	_st := tsgen_i37(strPtr(text), int32(len(text)), retPtr())
 	runtime.KeepAlive(text)
 	if _st == 1 {
 		_t106_0 := retI32(0)
@@ -1349,14 +1339,14 @@ func opJSONParse(text string) (int32, error) {
 }
 
 func opErrName(slot int32) *string {
-	if tsgen_i39(slot, retPtr()) != 0 {
+	if tsgen_i38(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))
 }
 
 func opErrMessage(slot int32) *string {
-	if tsgen_i40(slot, retPtr()) != 0 {
+	if tsgen_i39(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))

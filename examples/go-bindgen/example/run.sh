@@ -5,7 +5,7 @@
 # `./run.sh serve` then serves it in workerd and curls every route;
 # `./run.sh node` runs them in node.
 #
-# Env: WORKERD (else `workerd` on PATH). Needs Go 1.24+, wasm-tools and
+# Env: WORKERD (else `workerd` on PATH), PORT (else 8977). Needs Go 1.24+, wasm-tools and
 # binaryen's wasm-merge.
 set -euo pipefail
 EX="$(cd "$(dirname "$0")" && pwd)"
@@ -65,10 +65,10 @@ case "${1:-}" in
   node) node "$OUT/node.mjs" ;;
   serve)
     mkdir -p "$OUT/storage"
-    (cd "$OUT" && exec "${WORKERD:-workerd}" serve config.capnp --experimental 2> workerd.log) &
+    (cd "$OUT" && exec "${WORKERD:-workerd}" serve config.capnp --experimental --socket-addr "http=127.0.0.1:${PORT:-8977}" 2> workerd.log) &
     pid=$!
     trap 'kill $pid 2>/dev/null' EXIT
-    U=http://127.0.0.1:8977
+    U=http://127.0.0.1:${PORT:-8977}
     for _ in $(seq 1 50); do curl -s -o /dev/null $U/ && break; sleep 0.2; done
     curl -s -o /dev/null $U/ || { cat "$OUT/workerd.log" >&2; exit 1; }
     node "$OUT/tour.mjs" $U

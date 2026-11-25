@@ -493,19 +493,16 @@ func tsgen_i158(p0 float64, ret int32) int32
 func tsgen_i159(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i160
-func tsgen_i160(p0 int32, p1 int32, ret int32) int32
+func tsgen_i160(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i161
-func tsgen_i161(p0 int32, ret int32) int32
+func tsgen_i161(p0 int32, p1 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i162
-func tsgen_i162(p0 int32, p1 int32, ret int32) int32
+func tsgen_i162(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i163
 func tsgen_i163(p0 int32, ret int32) int32
-
-//go:wasmimport shim tsgen_i164
-func tsgen_i164(p0 int32, ret int32) int32
 
 // IntlDurationFormatLocaleMatcher is `Intl.DurationFormatLocaleMatcher`. Its zero value is none.
 type IntlDurationFormatLocaleMatcher int32
@@ -4862,15 +4859,8 @@ func opBoxBool(v int32) int32 {
 	return retI32(0)
 }
 
-func opPoll(f, waker int32) int32 {
-	if _st := tsgen_i160(f, waker, retPtr()); _st != 0 {
-		fail(_st)
-	}
-	return retI32(0)
-}
-
 func opJSONStringify(slot int32) (*string, error) {
-	_st := tsgen_i161(slot, retPtr())
+	_st := tsgen_i160(slot, retPtr())
 	if _st == 1 {
 		_t637_0 := retI32(0)
 		_t637_1 := retI32(1)
@@ -4890,7 +4880,7 @@ func opJSONStringify(slot int32) (*string, error) {
 }
 
 func opJSONParse(text string) (int32, error) {
-	_st := tsgen_i162(strPtr(text), int32(len(text)), retPtr())
+	_st := tsgen_i161(strPtr(text), int32(len(text)), retPtr())
 	runtime.KeepAlive(text)
 	if _st == 1 {
 		_t638_0 := retI32(0)
@@ -4911,14 +4901,14 @@ func opJSONParse(text string) (int32, error) {
 }
 
 func opErrName(slot int32) *string {
-	if tsgen_i163(slot, retPtr()) != 0 {
+	if tsgen_i162(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))
 }
 
 func opErrMessage(slot int32) *string {
-	if tsgen_i164(slot, retPtr()) != 0 {
+	if tsgen_i163(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))

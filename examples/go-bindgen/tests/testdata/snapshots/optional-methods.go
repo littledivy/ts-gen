@@ -106,19 +106,16 @@ func tsgen_i29(p0 float64, ret int32) int32
 func tsgen_i30(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i31
-func tsgen_i31(p0 int32, p1 int32, ret int32) int32
+func tsgen_i31(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i32
-func tsgen_i32(p0 int32, ret int32) int32
+func tsgen_i32(p0 int32, p1 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i33
-func tsgen_i33(p0 int32, p1 int32, ret int32) int32
+func tsgen_i33(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i34
 func tsgen_i34(p0 int32, ret int32) int32
-
-//go:wasmimport shim tsgen_i35
-func tsgen_i35(p0 int32, ret int32) int32
 
 // JSError is the error `err`: Kind says which arm, Message is the JS error's.
 // Find it with errors.As.
@@ -849,15 +846,8 @@ func opBoxBool(v int32) int32 {
 	return retI32(0)
 }
 
-func opPoll(f, waker int32) int32 {
-	if _st := tsgen_i31(f, waker, retPtr()); _st != 0 {
-		fail(_st)
-	}
-	return retI32(0)
-}
-
 func opJSONStringify(slot int32) (*string, error) {
-	_st := tsgen_i32(slot, retPtr())
+	_st := tsgen_i31(slot, retPtr())
 	if _st == 1 {
 		_t63_0 := retI32(0)
 		_t63_1 := retI32(1)
@@ -877,7 +867,7 @@ func opJSONStringify(slot int32) (*string, error) {
 }
 
 func opJSONParse(text string) (int32, error) {
-	_st := tsgen_i33(strPtr(text), int32(len(text)), retPtr())
+	_st := tsgen_i32(strPtr(text), int32(len(text)), retPtr())
 	runtime.KeepAlive(text)
 	if _st == 1 {
 		_t64_0 := retI32(0)
@@ -898,14 +888,14 @@ func opJSONParse(text string) (int32, error) {
 }
 
 func opErrName(slot int32) *string {
-	if tsgen_i34(slot, retPtr()) != 0 {
+	if tsgen_i33(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))
 }
 
 func opErrMessage(slot int32) *string {
-	if tsgen_i35(slot, retPtr()) != 0 {
+	if tsgen_i34(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))

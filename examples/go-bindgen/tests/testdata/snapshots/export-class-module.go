@@ -34,22 +34,19 @@ func tsgen_i5(p0 float64, ret int32) int32
 func tsgen_i6(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i7
-func tsgen_i7(p0 int32, p1 int32, ret int32) int32
+func tsgen_i7(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i8
 func tsgen_i8(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i9
-func tsgen_i9(p0 int32, ret int32) int32
+func tsgen_i9(p0 int32, p1 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i10
-func tsgen_i10(p0 int32, p1 int32, ret int32) int32
+func tsgen_i10(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i11
 func tsgen_i11(p0 int32, ret int32) int32
-
-//go:wasmimport shim tsgen_i12
-func tsgen_i12(p0 int32, ret int32) int32
 
 // JSError is the error `err`: Kind says which arm, Message is the JS error's.
 // Find it with errors.As.
@@ -375,21 +372,14 @@ func opBoxBool(v int32) int32 {
 	return retI32(0)
 }
 
-func opPoll(f, waker int32) int32 {
-	if _st := tsgen_i7(f, waker, retPtr()); _st != 0 {
-		fail(_st)
-	}
-	return retI32(0)
-}
-
 func opJSONStringify(slot int32) (*string, error) {
-	_st := tsgen_i8(slot, retPtr())
+	_st := tsgen_i7(slot, retPtr())
 	if _st == 1 {
 		_t17_0 := retI32(0)
 		_t17_1 := retI32(1)
 		_err17 := &JSError{Kind: JSErrorKind(_t17_0)}
 		if _t17_1 != 0 {
-			if tsgen_i9(_t17_1, retPtr()) == 0 {
+			if tsgen_i8(_t17_1, retPtr()) == 0 {
 				_err17.Message = takeString(retI32(0), retI32(1))
 			}
 			refFree(_t17_1, 1)
@@ -403,14 +393,14 @@ func opJSONStringify(slot int32) (*string, error) {
 }
 
 func opJSONParse(text string) (int32, error) {
-	_st := tsgen_i10(strPtr(text), int32(len(text)), retPtr())
+	_st := tsgen_i9(strPtr(text), int32(len(text)), retPtr())
 	runtime.KeepAlive(text)
 	if _st == 1 {
 		_t18_0 := retI32(0)
 		_t18_1 := retI32(1)
 		_err18 := &JSError{Kind: JSErrorKind(_t18_0)}
 		if _t18_1 != 0 {
-			if tsgen_i9(_t18_1, retPtr()) == 0 {
+			if tsgen_i8(_t18_1, retPtr()) == 0 {
 				_err18.Message = takeString(retI32(0), retI32(1))
 			}
 			refFree(_t18_1, 1)
@@ -424,14 +414,14 @@ func opJSONParse(text string) (int32, error) {
 }
 
 func opErrName(slot int32) *string {
-	if tsgen_i11(slot, retPtr()) != 0 {
+	if tsgen_i10(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))
 }
 
 func opErrMessage(slot int32) *string {
-	if tsgen_i12(slot, retPtr()) != 0 {
+	if tsgen_i11(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))

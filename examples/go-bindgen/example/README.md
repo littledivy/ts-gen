@@ -5,7 +5,7 @@ library (`std/std.ir`), bound through go-bindgen under
 `all-linear, jspi = on`. Each route shows one part of the binding.
 
 ```sh
-./run.sh serve   # workerd on 127.0.0.1:8977, every route requested (WORKERD or PATH)
+./run.sh serve   # workerd on 127.0.0.1:8977 (or PORT), every route requested (WORKERD or PATH)
 ./run.sh node    # the routes node can serve
 ```
 

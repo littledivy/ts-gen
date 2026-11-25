@@ -211,19 +211,16 @@ func tsgen_i64(p0 float64, ret int32) int32
 func tsgen_i65(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i66
-func tsgen_i66(p0 int32, p1 int32, ret int32) int32
+func tsgen_i66(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i67
-func tsgen_i67(p0 int32, ret int32) int32
+func tsgen_i67(p0 int32, p1 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i68
-func tsgen_i68(p0 int32, p1 int32, ret int32) int32
+func tsgen_i68(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i69
 func tsgen_i69(p0 int32, ret int32) int32
-
-//go:wasmimport shim tsgen_i70
-func tsgen_i70(p0 int32, ret int32) int32
 
 // KVValueKind is the union `KVValueKind`; its arms are Str, *ArrayBuffer.
 type KVValueKind interface{ isKVValueKind() }
@@ -1791,15 +1788,8 @@ func opBoxBool(v int32) int32 {
 	return retI32(0)
 }
 
-func opPoll(f, waker int32) int32 {
-	if _st := tsgen_i66(f, waker, retPtr()); _st != 0 {
-		fail(_st)
-	}
-	return retI32(0)
-}
-
 func opJSONStringify(slot int32) (*string, error) {
-	_st := tsgen_i67(slot, retPtr())
+	_st := tsgen_i66(slot, retPtr())
 	if _st == 1 {
 		_t197_0 := retI32(0)
 		_t197_1 := retI32(1)
@@ -1819,7 +1809,7 @@ func opJSONStringify(slot int32) (*string, error) {
 }
 
 func opJSONParse(text string) (int32, error) {
-	_st := tsgen_i68(strPtr(text), int32(len(text)), retPtr())
+	_st := tsgen_i67(strPtr(text), int32(len(text)), retPtr())
 	runtime.KeepAlive(text)
 	if _st == 1 {
 		_t198_0 := retI32(0)
@@ -1840,14 +1830,14 @@ func opJSONParse(text string) (int32, error) {
 }
 
 func opErrName(slot int32) *string {
-	if tsgen_i69(slot, retPtr()) != 0 {
+	if tsgen_i68(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))
 }
 
 func opErrMessage(slot int32) *string {
-	if tsgen_i70(slot, retPtr()) != 0 {
+	if tsgen_i69(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))

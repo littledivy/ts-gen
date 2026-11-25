@@ -413,11 +413,9 @@ func (g *Gen) emitOps() {
 	boxStr := g.importOp("tw:box", "str", []string{"i32", "i32"}, []string{"externref"}, nil)
 	boxF64 := g.importOp("tw:box", "f64", []string{"f64"}, []string{"externref"}, nil)
 	boxBool := g.importOp("tw:box", "bool", []string{"i32"}, []string{"externref"}, nil)
-	poll := g.importOp("tw:future", "poll", []string{"externref", "i32"}, []string{"i32"}, nil)
 	fmt.Fprintf(&b, "func opBoxStr(s string) int32 {\n\t_st := %s(strPtr(s), int32(len(s)), retPtr())\n\truntime.KeepAlive(s)\n\tif _st != 0 { fail(_st) }\n\treturn retI32(0)\n}\n\n", boxStr.C)
 	fmt.Fprintf(&b, "func opBoxF64(v float64) int32 {\n\tif _st := %s(v, retPtr()); _st != 0 { fail(_st) }\n\treturn retI32(0)\n}\n\n", boxF64.C)
 	fmt.Fprintf(&b, "func opBoxBool(v int32) int32 {\n\tif _st := %s(v, retPtr()); _st != 0 { fail(_st) }\n\treturn retI32(0)\n}\n\n", boxBool.C)
-	fmt.Fprintf(&b, "func opPoll(f, waker int32) int32 {\n\tif _st := %s(f, waker, retPtr()); _st != 0 { fail(_st) }\n\treturn retI32(0)\n}\n\n", poll.C)
 	find := func(key string) *Member {
 		for _, m := range g.members {
 			if m.Key == key {

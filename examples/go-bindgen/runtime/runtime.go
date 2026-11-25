@@ -12,8 +12,8 @@
 //            parameter, decoded with Decode through its JSON (json.go)
 //   await    blocks the calling goroutine until a JS promise settles. Other
 //            goroutines run meanwhile; once all of them wait, the module
-//            suspends in `tw:future wait` (JSPI, the profile's `jspi = on`)
-//            until a promise settles.
+//            suspends in `tw:future suspend_race` (JSPI, the profile's
+//            `jspi = on`) until one of their promises settles.
 //
 // Every shim import returns a status: 0 when the call returned (results in
 // the return area), 1 when it threw the member's declared error (the
@@ -43,8 +43,17 @@ func tsgenRefCopy(dst, src int32)
 //go:wasmimport shim tsgen_ref_is_null
 func tsgenRefIsNull(slot int32) int32
 
-//go:wasmimport tw:future wait
-func tsgenWait(waker int32)
+// tsgenSuspend suspends until the future in slot f settles: 1 resolved, 2
+// rejected, 0 if it's dropped first. The shim keeps Go's stack pointer.
+//
+//go:wasmimport shim tsgen_suspend
+func tsgenSuspend(f int32) int32
+
+// tsgenSuspendRace suspends until one of the futures in slots base to
+// base+n-1 settles, and returns its index; -1 if one is dropped first.
+//
+//go:wasmimport shim tsgen_suspend_race
+func tsgenSuspendRace(base, n int32) int32
 
 // The return area: one 8-byte slot per wire value, where the shim leaves an
 // import's results and an export leaves its own. It's read straight after
@@ -533,7 +542,6 @@ var (
 	pending     []pendingFuture
 	kick        = make(chan struct{}, 1)
 	pollerUp    bool
-	nextWaker   int32 = 1
 )
 
 // enter and leave bracket every export and trampoline.
@@ -555,27 +563,16 @@ func leave(async bool) {
 	}
 }
 
-// await blocks until the future in slot f settles: 1 resolved, 2 rejected
-// (as `tw:future poll` says). The caller then takes the value or the
-// error.
+// await blocks until the future in slot f settles: 1 resolved, 2 rejected.
+// The caller then takes the value or the error.
 func await(f int32) int32 {
-	if s := opPoll(f, -1); s != 0 {
-		return s
-	}
 	if syncEntries > 0 {
 		panic("ts-gen: a synchronous callback can't wait for a JS promise")
 	}
 	if entries > 1 {
-		// Nested in another entry, whose goroutines are suspended with it:
-		// wait here, on a waker of its own.
-		w := nextWaker
-		nextWaker++
-		for {
-			if s := opPoll(f, w); s != 0 {
-				return s
-			}
-			tsgenWait(w)
-		}
+		// Nested in another entry, whose goroutines are parked with it:
+		// suspend this call alone.
+		return settled(tsgenSuspend(f))
 	}
 	if !pollerUp {
 		pollerUp = true
@@ -590,34 +587,38 @@ func await(f int32) int32 {
 	return <-done
 }
 
-// poller runs once every other goroutine waits: it hands each settled
-// future to its goroutine, and when none has settled, suspends the module
-// until one does (every pending future wakes waker 0).
+func settled(s int32) int32 {
+	if s <= 0 {
+		panic("ts-gen: a future was dropped while awaited")
+	}
+	return s
+}
+
+// poller runs once every other goroutine waits: it suspends the module
+// until one of the pending futures settles, and hands it to its goroutine.
 func poller() {
 	for {
 		<-kick
 		for len(pending) > 0 {
 			runtime.Gosched()
-			settled := false
-			for i := 0; i < len(pending); {
-				if s := opPoll(pending[i].future, 0); s != 0 {
-					p := pending[i]
-					pending = append(pending[:i], pending[i+1:]...)
-					p.done <- s
-					settled = true
-					continue
-				}
-				i++
+			// suspend_race takes a range of slots.
+			n := int32(len(pending))
+			base := refAlloc(n)
+			for k, p := range pending {
+				tsgenRefCopy(base+int32(k), p.future)
 			}
-			if !settled && len(pending) > 0 {
-				tsgenWait(0)
+			i := tsgenSuspendRace(base, n)
+			refFree(base, n)
+			if i < 0 {
+				settled(0)
 			}
+			p := pending[i]
+			pending = append(pending[:i], pending[i+1:]...)
+			// It's settled: suspend returns at once.
+			p.done <- settled(tsgenSuspend(p.future))
 		}
 	}
 }
-
-//go:wasmexport tw:future/wake
-func twFutureWake(waker int32) {}
 
 // slotJS is the slot a JSValue borrows; nil is null.
 func slotJS(v JSValue) int32 {

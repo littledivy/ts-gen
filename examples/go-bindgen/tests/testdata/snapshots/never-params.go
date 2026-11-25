@@ -28,19 +28,16 @@ func tsgen_i3(p0 float64, ret int32) int32
 func tsgen_i4(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i5
-func tsgen_i5(p0 int32, p1 int32, ret int32) int32
+func tsgen_i5(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i6
-func tsgen_i6(p0 int32, ret int32) int32
+func tsgen_i6(p0 int32, p1 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i7
-func tsgen_i7(p0 int32, p1 int32, ret int32) int32
+func tsgen_i7(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i8
 func tsgen_i8(p0 int32, ret int32) int32
-
-//go:wasmimport shim tsgen_i9
-func tsgen_i9(p0 int32, ret int32) int32
 
 // Unit is `Unit_`. Its zero value is none.
 type Unit int32
@@ -138,15 +135,8 @@ func opBoxBool(v int32) int32 {
 	return retI32(0)
 }
 
-func opPoll(f, waker int32) int32 {
-	if _st := tsgen_i5(f, waker, retPtr()); _st != 0 {
-		fail(_st)
-	}
-	return retI32(0)
-}
-
 func opJSONStringify(slot int32) (*string, error) {
-	_st := tsgen_i6(slot, retPtr())
+	_st := tsgen_i5(slot, retPtr())
 	if _st == 1 {
 		_t3_0 := retI32(0)
 		_t3_1 := retI32(1)
@@ -166,7 +156,7 @@ func opJSONStringify(slot int32) (*string, error) {
 }
 
 func opJSONParse(text string) (int32, error) {
-	_st := tsgen_i7(strPtr(text), int32(len(text)), retPtr())
+	_st := tsgen_i6(strPtr(text), int32(len(text)), retPtr())
 	runtime.KeepAlive(text)
 	if _st == 1 {
 		_t4_0 := retI32(0)
@@ -187,14 +177,14 @@ func opJSONParse(text string) (int32, error) {
 }
 
 func opErrName(slot int32) *string {
-	if tsgen_i8(slot, retPtr()) != 0 {
+	if tsgen_i7(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))
 }
 
 func opErrMessage(slot int32) *string {
-	if tsgen_i9(slot, retPtr()) != 0 {
+	if tsgen_i8(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))

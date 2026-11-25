@@ -121,6 +121,12 @@ func shimWat(m *manifest, used, exported map[string]bool) string {
 		}
 		L = append(L, fmt.Sprintf("  (import \"go\" %s (func $x%d%s))", watStr(e.C), i, sig(ps, rs)))
 	}
+	suspends := used["tsgen_suspend"] || used["tsgen_suspend_race"]
+	if suspends {
+		L = append(L,
+			`  (import "tw:future" "suspend" (func $suspend (param externref) (result i32)))`,
+			`  (import "tw:future" "suspend_race" (func $suspendRace (param i32 i32) (result i32)))`)
+	}
 	// The table and its ranges (IR.md §14).
 	L = append(L,
 		`  (table $t (export "tw:table") 132 externref)`,
@@ -142,6 +148,18 @@ func shimWat(m *manifest, used, exported map[string]bool) string {
     (local.set $v (table.get $t (local.get $s)))
     (call $free (local.get $s))
     (local.get $v))`)
+	if suspends {
+		// Suspensions (IR.md §16), for slots. Go keeps its own stack
+		// pointer: the export wrapper Go generates restores it as a call
+		// returns, and Go may move a goroutine's stack (growing it) while
+		// a call is parked, so a saved one could be stale. Go's table slots
+		// are all on its heap, so there's no table stack to keep.
+		L = append(L,
+			`  (func (export "tsgen_suspend") (param $f i32) (result i32)
+    (call $suspend (table.get $t (local.get $f))))`,
+			`  (func (export "tsgen_suspend_race") (param $base i32) (param $n i32) (result i32)
+    (call $suspendRace (local.get $base) (local.get $n)))`)
+	}
 	store := func(w, addr string, off int, val string) string {
 		if w == "externref" {
 			return fmt.Sprintf("(i32.store offset=%d %s (call $stash %s))", off, addr, val)

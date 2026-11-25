@@ -319,19 +319,16 @@ func tsgen_i100(p0 float64, ret int32) int32
 func tsgen_i101(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i102
-func tsgen_i102(p0 int32, p1 int32, ret int32) int32
+func tsgen_i102(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i103
-func tsgen_i103(p0 int32, ret int32) int32
+func tsgen_i103(p0 int32, p1 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i104
-func tsgen_i104(p0 int32, p1 int32, ret int32) int32
+func tsgen_i104(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i105
 func tsgen_i105(p0 int32, ret int32) int32
-
-//go:wasmimport shim tsgen_i106
-func tsgen_i106(p0 int32, ret int32) int32
 
 // Filter is the union `Filter`; its arms are Str, FilterOpMap, CollectionOpMap.
 type Filter interface{ isFilter() }
@@ -1964,15 +1961,8 @@ func opBoxBool(v int32) int32 {
 	return retI32(0)
 }
 
-func opPoll(f, waker int32) int32 {
-	if _st := tsgen_i102(f, waker, retPtr()); _st != 0 {
-		fail(_st)
-	}
-	return retI32(0)
-}
-
 func opJSONStringify(slot int32) (*string, error) {
-	_st := tsgen_i103(slot, retPtr())
+	_st := tsgen_i102(slot, retPtr())
 	if _st == 1 {
 		_t206_0 := retI32(0)
 		_t206_1 := retI32(1)
@@ -1992,7 +1982,7 @@ func opJSONStringify(slot int32) (*string, error) {
 }
 
 func opJSONParse(text string) (int32, error) {
-	_st := tsgen_i104(strPtr(text), int32(len(text)), retPtr())
+	_st := tsgen_i103(strPtr(text), int32(len(text)), retPtr())
 	runtime.KeepAlive(text)
 	if _st == 1 {
 		_t207_0 := retI32(0)
@@ -2013,14 +2003,14 @@ func opJSONParse(text string) (int32, error) {
 }
 
 func opErrName(slot int32) *string {
-	if tsgen_i105(slot, retPtr()) != 0 {
+	if tsgen_i104(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))
 }
 
 func opErrMessage(slot int32) *string {
-	if tsgen_i106(slot, retPtr()) != 0 {
+	if tsgen_i105(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))

@@ -136,19 +136,16 @@ func tsgen_i39(p0 float64, ret int32) int32
 func tsgen_i40(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i41
-func tsgen_i41(p0 int32, p1 int32, ret int32) int32
+func tsgen_i41(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i42
-func tsgen_i42(p0 int32, ret int32) int32
+func tsgen_i42(p0 int32, p1 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i43
-func tsgen_i43(p0 int32, p1 int32, ret int32) int32
+func tsgen_i43(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i44
 func tsgen_i44(p0 int32, ret int32) int32
-
-//go:wasmimport shim tsgen_i45
-func tsgen_i45(p0 int32, ret int32) int32
 
 // RequestInfo is the union `RequestInfo`; its arms are Request, Str.
 type RequestInfo interface{ isRequestInfo() }
@@ -1039,15 +1036,8 @@ func opBoxBool(v int32) int32 {
 	return retI32(0)
 }
 
-func opPoll(f, waker int32) int32 {
-	if _st := tsgen_i41(f, waker, retPtr()); _st != 0 {
-		fail(_st)
-	}
-	return retI32(0)
-}
-
 func opJSONStringify(slot int32) (*string, error) {
-	_st := tsgen_i42(slot, retPtr())
+	_st := tsgen_i41(slot, retPtr())
 	if _st == 1 {
 		_t106_0 := retI32(0)
 		_t106_1 := retI32(1)
@@ -1067,7 +1057,7 @@ func opJSONStringify(slot int32) (*string, error) {
 }
 
 func opJSONParse(text string) (int32, error) {
-	_st := tsgen_i43(strPtr(text), int32(len(text)), retPtr())
+	_st := tsgen_i42(strPtr(text), int32(len(text)), retPtr())
 	runtime.KeepAlive(text)
 	if _st == 1 {
 		_t107_0 := retI32(0)
@@ -1088,14 +1078,14 @@ func opJSONParse(text string) (int32, error) {
 }
 
 func opErrName(slot int32) *string {
-	if tsgen_i44(slot, retPtr()) != 0 {
+	if tsgen_i43(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))
 }
 
 func opErrMessage(slot int32) *string {
-	if tsgen_i45(slot, retPtr()) != 0 {
+	if tsgen_i44(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))

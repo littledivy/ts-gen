@@ -67,19 +67,16 @@ func tsgen_i16(p0 float64, ret int32) int32
 func tsgen_i17(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i18
-func tsgen_i18(p0 int32, p1 int32, ret int32) int32
+func tsgen_i18(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i19
-func tsgen_i19(p0 int32, ret int32) int32
+func tsgen_i19(p0 int32, p1 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i20
-func tsgen_i20(p0 int32, p1 int32, ret int32) int32
+func tsgen_i20(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i21
 func tsgen_i21(p0 int32, ret int32) int32
-
-//go:wasmimport shim tsgen_i22
-func tsgen_i22(p0 int32, ret int32) int32
 
 // EnvHeadersKind is the union `EnvHeadersKind`; its arms are Str, EnvHeadersKindStrArray.
 type EnvHeadersKind interface{ isEnvHeadersKind() }
@@ -438,15 +435,8 @@ func opBoxBool(v int32) int32 {
 	return retI32(0)
 }
 
-func opPoll(f, waker int32) int32 {
-	if _st := tsgen_i18(f, waker, retPtr()); _st != 0 {
-		fail(_st)
-	}
-	return retI32(0)
-}
-
 func opJSONStringify(slot int32) (*string, error) {
-	_st := tsgen_i19(slot, retPtr())
+	_st := tsgen_i18(slot, retPtr())
 	if _st == 1 {
 		_t39_0 := retI32(0)
 		_t39_1 := retI32(1)
@@ -466,7 +456,7 @@ func opJSONStringify(slot int32) (*string, error) {
 }
 
 func opJSONParse(text string) (int32, error) {
-	_st := tsgen_i20(strPtr(text), int32(len(text)), retPtr())
+	_st := tsgen_i19(strPtr(text), int32(len(text)), retPtr())
 	runtime.KeepAlive(text)
 	if _st == 1 {
 		_t40_0 := retI32(0)
@@ -487,14 +477,14 @@ func opJSONParse(text string) (int32, error) {
 }
 
 func opErrName(slot int32) *string {
-	if tsgen_i21(slot, retPtr()) != 0 {
+	if tsgen_i20(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))
 }
 
 func opErrMessage(slot int32) *string {
-	if tsgen_i22(slot, retPtr()) != 0 {
+	if tsgen_i21(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))

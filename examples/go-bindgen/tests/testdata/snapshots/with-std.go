@@ -1183,19 +1183,16 @@ func tsgen_i388(p0 float64, ret int32) int32
 func tsgen_i389(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i390
-func tsgen_i390(p0 int32, p1 int32, ret int32) int32
+func tsgen_i390(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i391
-func tsgen_i391(p0 int32, ret int32) int32
+func tsgen_i391(p0 int32, p1 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i392
-func tsgen_i392(p0 int32, p1 int32, ret int32) int32
+func tsgen_i392(p0 int32, ret int32) int32
 
 //go:wasmimport shim tsgen_i393
 func tsgen_i393(p0 int32, ret int32) int32
-
-//go:wasmimport shim tsgen_i394
-func tsgen_i394(p0 int32, ret int32) int32
 
 // SymbolToPrimitiveKind is the union `SymbolToPrimitiveKind`; its arms are Str, Num.
 type SymbolToPrimitiveKind interface{ isSymbolToPrimitiveKind() }
@@ -11235,15 +11232,8 @@ func opBoxBool(v int32) int32 {
 	return retI32(0)
 }
 
-func opPoll(f, waker int32) int32 {
-	if _st := tsgen_i390(f, waker, retPtr()); _st != 0 {
-		fail(_st)
-	}
-	return retI32(0)
-}
-
 func opJSONStringify(slot int32) (*string, error) {
-	_st := tsgen_i391(slot, retPtr())
+	_st := tsgen_i390(slot, retPtr())
 	if _st == 1 {
 		_t1475_0 := retI32(0)
 		_t1475_1 := retI32(1)
@@ -11263,7 +11253,7 @@ func opJSONStringify(slot int32) (*string, error) {
 }
 
 func opJSONParse(text string) (int32, error) {
-	_st := tsgen_i392(strPtr(text), int32(len(text)), retPtr())
+	_st := tsgen_i391(strPtr(text), int32(len(text)), retPtr())
 	runtime.KeepAlive(text)
 	if _st == 1 {
 		_t1476_0 := retI32(0)
@@ -11284,14 +11274,14 @@ func opJSONParse(text string) (int32, error) {
 }
 
 func opErrName(slot int32) *string {
-	if tsgen_i393(slot, retPtr()) != 0 {
+	if tsgen_i392(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))
 }
 
 func opErrMessage(slot int32) *string {
-	if tsgen_i394(slot, retPtr()) != 0 {
+	if tsgen_i393(slot, retPtr()) != 0 {
 		return nil
 	}
 	return takeOptString(retI32(0), retI32(1))
