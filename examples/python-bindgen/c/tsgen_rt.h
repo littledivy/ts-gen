@@ -8,7 +8,9 @@
 // memory, which every suspended call shares, so a call suspended in a wait
 // resumes only once every call that entered after it has returned
 // (tsgen_wait_any); and JS calling in synchronously while C runs is held
-// back by the shim until that code suspends (bindgen.py --defer).
+// back by the shim until that code suspends (bindgen.py --defer). Nesting
+// strictly keeps the shadow stack pointer right across a suspension: the
+// calls that ran meanwhile have all restored it as they returned.
 #pragma once
 #include <stdint.h>
 

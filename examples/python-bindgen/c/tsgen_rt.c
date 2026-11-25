@@ -12,8 +12,8 @@ IMPORT("tsgen", "tsgen_table_grow") int32_t tsgen_table_grow(int32_t n);
 IMPORT("tsgen", "tsgen_ref_clear") void tsgen_ref_clear(int32_t base, int32_t n);
 IMPORT("tsgen", "tsgen_ref_copy") void tsgen_ref_copy(int32_t dst, int32_t src);
 // The bridge's future operations (IR.md §16), through the shim.
-IMPORT("tsgen", "tw:future::poll") int32_t tsgen_future_poll(int32_t f, int32_t waker);
-IMPORT("tsgen", "tw:future::wait") void tsgen_future_wait(int32_t waker);
+IMPORT("tsgen", "tw:future::suspend") int32_t tsgen_future_suspend(int32_t f);
+IMPORT("tsgen", "tw:future::suspend_race") int32_t tsgen_future_suspend_race(int32_t base, int32_t n);
 IMPORT("tsgen", "tw:future::drop") void tsgen_future_drop(int32_t f);
 IMPORT("tsgen", "tw:future::new") void tsgen_future_new(void *ret);
 IMPORT("tsgen", "tw:future::resolve<unit>") void tsgen_future_resolve_unit(int32_t resolver);
@@ -111,7 +111,6 @@ EXPORT("tw:free") void tsgen_free(void *p, size_t size, size_t align) {
 // ---- nesting and waiting ----
 
 static int depth, running;
-static int32_t next_waker = 1;
 
 // A wait resumed while a call that entered after it is still in progress
 // holds a future that the next return from a call settles.
@@ -125,7 +124,6 @@ int tsgen_depth(void) { return depth; }
 
 // For the shim: whether C code is running now (not suspended in a wait).
 EXPORT("cfts_running") int32_t tsgen_running(void) { return running; }
-EXPORT("cfts_waker") int32_t tsgen_waker(void) { return next_waker++; }
 
 int tsgen_enter(void) {
   int prev = running;
@@ -148,40 +146,32 @@ void tsgen_leave(int prev) {
 
 int tsgen_wait_any(const int32_t *fs, int n) {
   int mine = depth;
-  int32_t w = next_waker++;
-  for (;;) {
-    int ready = -1;
-    for (int i = 0; i < n; i++) {
-      if (tsgen_future_poll(fs[i], w) != 0) {
-        ready = i;
-        break;
-      }
+  // suspend_race takes a range of slots.
+  int32_t base = tsgen_range_alloc(n);
+  for (int i = 0; i < n; i++) tsgen_ref_copy(base + i, fs[i]);
+  running = 0;
+  int ready = tsgen_future_suspend_race(base, n);
+  running = 1;
+  tsgen_range_free(base, n);
+  if (ready < 0) abort();  // a future dropped while awaited
+  // A call that entered while this one was parked is still in progress:
+  // wait for calls to return until this one is on top again.
+  while (depth > mine) {
+    struct {
+      int32_t future, pad0, resolver, pad1;
+    } r;
+    tsgen_future_new(&r);
+    if (nlevel == caplevel) {
+      caplevel = caplevel ? caplevel * 2 : 8;
+      level_waiters = realloc(level_waiters, caplevel * sizeof *level_waiters);
+      if (!level_waiters) abort();
     }
-    if (ready >= 0 && depth == mine) return ready;
-    int32_t level = 0;
-    if (depth > mine) {
-      struct {
-        int32_t future, pad0, resolver, pad1;
-      } r;
-      tsgen_future_new(&r);
-      if (nlevel == caplevel) {
-        caplevel = caplevel ? caplevel * 2 : 8;
-        level_waiters = realloc(level_waiters, caplevel * sizeof *level_waiters);
-        if (!level_waiters) abort();
-      }
-      level_waiters[nlevel++].resolver = r.resolver;
-      level = r.future;
-      tsgen_future_poll(level, w);
-    }
+    level_waiters[nlevel++].resolver = r.resolver;
     running = 0;
-    tsgen_future_wait(w);
+    tsgen_future_suspend(r.future);
     running = 1;
-    if (level) {
-      tsgen_future_drop(level);
-      tsgen_slot_free(level);
-    }
+    tsgen_future_drop(r.future);
+    tsgen_slot_free(r.future);
   }
+  return ready;
 }
-
-// A wake no wait holds: the module polls again whenever it next waits.
-EXPORT("tw:future/wake") void tsgen_wake(int32_t waker) { (void)waker; }

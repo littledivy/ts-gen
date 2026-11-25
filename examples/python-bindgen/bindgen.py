@@ -26,7 +26,7 @@ calls, exported from C as "cfts:<name>" with the same conventions (its
 externref params are slots the C side now owns; an externref result is a
 slot the shim takes and frees). C also exports the slot allocator the shim
 uses (cfts_slot_alloc, cfts_slot_free), tw:table/alloc, tw:table/free,
-tw:realloc, tw:free and, if the IR has futures, tw:future/wake.
+tw:realloc and tw:free.
 
 `shim` writes the shim for the imports and exports the linked C module
 (<c.wasm>, merged under the name <name>) actually has. With --defer, every
@@ -63,11 +63,11 @@ def collect(lowered):
         if not isinstance(r, dict):
             return
         if r.get("kind") == "host" and r.get("of") == "future":
-            add_import("tw:future", "poll", ["externref", "i32"], ["i32"])
             add_import("tw:future", "drop", ["externref"], [])
             add_import("tw:future", "new", [], ["externref", "externref"])
             if p.get("jspi") == "on":
-                add_import("tw:future", "wait", ["i32"], [])
+                add_import("tw:future", "suspend", ["externref"], ["i32"])
+                add_import("tw:future", "suspend_race", ["i32", "i32"], ["i32"])
             if r.get("take"):
                 add_import(r["take"]["module"], r["take"]["name"], ["externref"], r["value"]["wire"])
             if r.get("resolve"):
@@ -285,7 +285,7 @@ def shim(lowered, wasm_path, c_module, defer_key):
         return next((i for i in imports if i["module"] == "tw:future" and i["name"] == n), None)
 
     if defer is not None:
-        for n in ("poll", "wait", "drop"):
+        for n in ("suspend", "drop"):
             if fut(n) not in imps:
                 imps.append(fut(n))
 
@@ -302,7 +302,6 @@ def shim(lowered, wasm_path, c_module, defer_key):
     out.append(f'  (import {c} "cfts_slot_free" (func $free (param i32)))')
     if defer is not None:
         out.append(f'  (import {c} "cfts_running" (func $running (result i32)))')
-        out.append(f'  (import {c} "cfts_waker" (func $waker (result i32)))')
     out.append(f'  (import {c} "memory" (memory 0))')
     fid = {}
     for k, imp in enumerate(imps):
@@ -375,14 +374,10 @@ def shim(lowered, wasm_path, c_module, defer_key):
         if defer is not None and e["future"]:
             # JS called in while the C side runs (from inside an import):
             # wait until that code has suspended or returned.
-            wait = f"""(local $w i32) (local $f externref)
+            wait = f"""(local $f externref)
     (if (call $running) (then
-      (local.set $w (call $waker))
       (local.set $f (call {fid[id(defer)]}))
-      (block $ready (loop $again
-        (br_if $ready (call {fid[id(fut('poll'))]} (local.get $f) (local.get $w)))
-        (call {fid[id(fut('wait'))]} (local.get $w))
-        (br $again)))
+      (drop (call {fid[id(fut('suspend'))]} (local.get $f)))
       (call {fid[id(fut('drop'))]} (local.get $f))))
     """
         if len(e["results"]) == 1 and e["results"][0] == "externref":
