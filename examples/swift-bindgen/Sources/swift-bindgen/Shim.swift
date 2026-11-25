@@ -85,6 +85,12 @@ func shimWat(manifest: JSON, used: Set<String>, exported: Set<String>) -> String
         let rs = f.ret.map { " (result \($0))" } ?? ""
         lines.append("  (import \"swift\" \(wat(e.c)) (func $x\(i)\(ps)\(rs)))")
     }
+    let suspends = used.contains("tsgen_suspend") || used.contains("tsgen_suspend_race")
+    if suspends {
+        lines.append("  (import \"swift\" \"__stack_pointer\" (global $sp (mut i32)))")
+        lines.append("  (import \"tw:future\" \"suspend\" (func $suspend (param externref) (result i32)))")
+        lines.append("  (import \"tw:future\" \"suspend_race\" (func $suspendRace (param i32 i32) (result i32)))")
+    }
     // The table and its ranges (IR.md §14).
     lines.append("  (table $t (export \"tw:table\") 132 externref)")
     lines.append("  (global (export \"tw:table/stack_base\") i32 (i32.const 1))")
@@ -94,6 +100,26 @@ func shimWat(manifest: JSON, used: Set<String>, exported: Set<String>) -> String
     lines.append("  (func (export \"tsgen_ref_clear\") (param i32 i32) (table.fill $t (local.get 0) (ref.null extern) (local.get 1)))")
     lines.append("  (func (export \"tsgen_ref_copy\") (param i32 i32) (table.set $t (local.get 0) (table.get $t (local.get 1))))")
     lines.append("  (func (export \"tsgen_ref_is_null\") (param i32) (result i32) (ref.is_null (table.get $t (local.get 0))))")
+    if suspends {
+        // Suspensions (IR.md §16), for slots. Another call can run on
+        // Swift's linear-memory stack while this one is parked, so the stack
+        // pointer is put back as it resumes. Swift's slots are all on its
+        // heap, so there's no table stack to keep.
+        lines.append("""
+              (func (export "tsgen_suspend") (param $f i32) (result i32) (local $s i32) (local $r i32)
+                (local.set $s (global.get $sp))
+                (local.set $r (call $suspend (table.get $t (local.get $f))))
+                (global.set $sp (local.get $s))
+                (local.get $r))
+            """)
+        lines.append("""
+              (func (export "tsgen_suspend_race") (param $base i32) (param $n i32) (result i32) (local $s i32) (local $r i32)
+                (local.set $s (global.get $sp))
+                (local.set $r (call $suspendRace (local.get $base) (local.get $n)))
+                (global.set $sp (local.get $s))
+                (local.get $r))
+            """)
+    }
     // An externref into a new slot (0 for null), and back out of one.
     lines.append("""
           (func $stash (param $v externref) (result i32) (local $s i32)

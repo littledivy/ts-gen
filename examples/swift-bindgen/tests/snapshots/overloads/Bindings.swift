@@ -986,12 +986,11 @@ public enum TSGenOps {
   public static func boxF64(_ v: Double) -> Int32 { tsgen_i60(v) }
   public static func boxBool(_ v: Int32) -> Int32 { tsgen_i61(v) }
   public static func boxArr(_ base: Int32, _ n: Int32) -> Int32 { tsgen_i62(base, n) }
-  public static func poll(_ f: Int32, _ waker: Int32) -> Int32 { tsgen_i63(f, waker) }
   /// Classifies an owned slot's value; frees the slot.
   public static func classify(_ slot: Int32) -> TsgenValue? {
     defer { RefTable.free(slot, 1) }
     if slot == 0 { return nil }
-    tsgen_i64(slot, TSGenRet.ptr)
+    tsgen_i63(slot, TSGenRet.ptr)
     let _w108_0 = TSGenRet.i32(0)
     let _w108_1 = TSGenRet.i32(1)
     let _w108_2 = TSGenRet.i32(2)

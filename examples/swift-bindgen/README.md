@@ -42,9 +42,11 @@ exports the module has, and binaryen's `wasm-merge` merges it in.
 
 Swift's executor runs its tasks synchronously, so the bindings block on
 futures: `TSGen.block` drains the executor, and when every task waits on
-a JS promise, `("tw:future", "wait")` suspends the module (JSPI) until one
-settles. The bridge calls the exports that return a future through
-`WebAssembly.promising`.
+a JS promise, `("tw:future", "suspend_race")` suspends the module (JSPI)
+until one of their futures settles. The shim's wrappers put Swift's stack
+pointer back as a suspension resumes, since another call can run on that
+stack while it's parked. The bridge calls the exports that return a future
+through `WebAssembly.promising`.
 
 `--roots` limits the bindings to those declarations and global members,
 and everything their members reach. The bindings are internal, so

@@ -1715,7 +1715,6 @@ final class Gen {
         let boxF64 = importOp("tw:box", "f64", ["f64"], ["externref"], nil)
         let boxBool = importOp("tw:box", "bool", ["i32"], ["externref"], nil)
         let boxArr = importOp("tw:box", "arr<Any?>", ["i32", "i32"], ["externref"], nil)
-        let poll = importOp("tw:future", "poll", ["externref", "i32"], ["i32"], nil)
         guard let layout = decls["TsgenValue"]?["layout"] else {
             throw GenError(description: "the IR declares no TsgenValue: append `swift-bindgen runtime-ir` to it before lowering")
         }
@@ -1732,7 +1731,6 @@ final class Gen {
               public static func boxF64(_ v: Double) -> Int32 { \(boxF64.c)(v) }
               public static func boxBool(_ v: Int32) -> Int32 { \(boxBool.c)(v) }
               public static func boxArr(_ base: Int32, _ n: Int32) -> Int32 { \(boxArr.c)(base, n) }
-              public static func poll(_ f: Int32, _ waker: Int32) -> Int32 { \(poll.c)(f, waker) }
               /// Classifies an owned slot's value; frees the slot.
               public static func classify(_ slot: Int32) -> TsgenValue? {
                 defer { RefTable.free(slot, 1) }
@@ -1779,7 +1777,8 @@ final class Gen {
             "void tsgen_ref_clear(int32_t base, int32_t n) TSGEN_SHIM(\"tsgen_ref_clear\");",
             "void tsgen_ref_copy(int32_t dst, int32_t src) TSGEN_SHIM(\"tsgen_ref_copy\");",
             "int32_t tsgen_ref_is_null(int32_t slot) TSGEN_SHIM(\"tsgen_ref_is_null\");",
-            "void tsgen_wait(int32_t waker) __attribute__((import_module(\"tw:future\"), import_name(\"wait\")));",
+            "int32_t tsgen_suspend(int32_t f) TSGEN_SHIM(\"tsgen_suspend\");",
+            "int32_t tsgen_suspend_race(int32_t base, int32_t n) TSGEN_SHIM(\"tsgen_suspend_race\");",
         ]
         for e in imports.values {
             let f = flatImport(params: e.params, results: e.results, throws: e.tag != nil)

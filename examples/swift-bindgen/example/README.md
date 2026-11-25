@@ -7,7 +7,7 @@ A tour of the Workers API from Swift: a Cloudflare Worker over
 text; `/` lists them.
 
 ```sh
-./run.sh serve   # the tour: workerd on 127.0.0.1:8951, every route curled (WORKERD or PATH)
+./run.sh serve   # the tour: workerd on 127.0.0.1:8951 (or PORT), every route curled (WORKERD or PATH)
 ./run.sh node    # the routes node can serve
 ```
 

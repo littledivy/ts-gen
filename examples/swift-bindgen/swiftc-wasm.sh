@@ -50,4 +50,5 @@ exec "$TC/bin/swiftc" -target wasm32-unknown-wasip1 -sdk "$SDK/WASI.sdk" \
   -resource-dir "$SDK/swift.xctoolchain/usr/lib/swift_static" -static-stdlib \
   -Osize -wmo -parse-as-library -swift-version 5 \
   -Xclang-linker -mexec-model=reactor -Xlinker --strip-all -Xlinker --gc-sections \
+  -Xlinker --export=__stack_pointer \
   "$@"

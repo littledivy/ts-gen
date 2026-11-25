@@ -8,8 +8,8 @@
 //   RefTable     the slot allocator behind `tw:table/alloc` and `/free`
 //   TSGen.block  runs an async export to completion: Swift's cooperative
 //                executor drains its jobs, and when every task waits on a JS
-//                promise, `tw:future wait` suspends the module (JSPI, the
-//                profile's `jspi = on`) until one settles
+//                promise, `tw:future suspend_race` suspends the module
+//                (JSPI, the profile's `jspi = on`) until one settles
 //   JSValueDecoder / JSValueEncoder   Codable over JS values, through the
 //                bridge's discrimination of `TsgenValue` (runtime.ir)
 
@@ -316,27 +316,32 @@ func _donate(_ condition: @convention(c) (UnsafeMutableRawPointer?) -> Bool, _ c
 
 public enum TSGen {
   struct Waiter {
+    let id: Int
     let future: Int32
     let resume: UnsafeContinuation<Int32, Never>
   }
   static var waiters: [Waiter] = []
+  static var nextId = 0
 
   /// Waits for a future the bridge handed out. 1 means resolved and 2
-  /// rejected, as `tw:future poll` says; the caller then takes the value or
-  /// the error.
+  /// rejected, as `tw:future suspend` says; the caller then takes the value
+  /// or the error.
   public static func settle(_ future: Int32) async -> Int32 {
-    let state = TSGenOps.poll(future, -1)
-    if state != 0 { return state }
-    return await withUnsafeContinuation { waiters.append(Waiter(future: future, resume: $0)) }
+    nextId += 1
+    let id = nextId
+    return await withUnsafeContinuation { waiters.append(Waiter(id: id, future: future, resume: $0)) }
   }
 
   final class Done { var done = false }
 
-  /// The waker `block` polls with and waits on.
-  static let waker: Int32 = 0
-
   /// Runs `body` as a task and drains Swift's executor until it finishes.
   /// Tasks the body starts run too, interleaved at their awaits.
+  ///
+  /// When every task waits on a JS promise, the module suspends until one
+  /// of their futures settles (`suspend_race`), and that task resumes.
+  /// `waiters` is shared by every `block` on the Wasm stack: another call
+  /// that runs while this one is parked may resume this call's tasks, so
+  /// the race's winner is looked up again by id once it returns.
   public static func block(_ body: @escaping () async -> Void) {
     let flag = Done()
     Task { await body(); flag.done = true }
@@ -345,28 +350,23 @@ public enum TSGen {
       _donate({ Unmanaged<Done>.fromOpaque($0!).takeUnretainedValue().done }, context)
       if flag.done { return }
       if waiters.isEmpty { fatalError("ts-gen: every task is waiting, and none on a JS promise") }
-      // Resume the tasks whose futures settled; with none, suspend until
-      // one does: every pending future wakes `waker`.
-      var settled = false
-      var i = 0
-      while i < waiters.count {
-        let state = TSGenOps.poll(waiters[i].future, waker)
-        if state == 0 {
-          i += 1
-          continue
-        }
-        let w = waiters.remove(at: i)
-        w.resume.resume(returning: state)
-        settled = true
-      }
-      if !settled { tsgen_wait(waker) }
+      // suspend_race takes a range of slots.
+      let racing = waiters
+      let n = Int32(racing.count)
+      let base = RefTable.alloc(n)
+      for (k, w) in racing.enumerated() { tsgen_ref_copy(base + Int32(k), w.future) }
+      let i = tsgen_suspend_race(base, n)
+      RefTable.free(base, n)
+      if i < 0 { fatalError("ts-gen: a future was dropped while awaited") }
+      guard let at = waiters.firstIndex(where: { $0.id == racing[Int(i)].id }) else { continue }
+      let w = waiters.remove(at: at)
+      // It's settled: suspend returns at once.
+      let state = tsgen_suspend(w.future)
+      if state <= 0 { fatalError("ts-gen: a future was dropped while awaited") }
+      w.resume.resume(returning: state)
     }
   }
 }
-
-@_expose(wasm, "tw:future/wake")
-@_cdecl("tsgen_tw_future_wake")
-public func _tsgenWake(_ waker: Int32) {}
 
 // MARK: Codable
 // Embedded Swift has no Codable.

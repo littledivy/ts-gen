@@ -244,12 +244,12 @@ fn enum_slots(e: Option<&Json>) -> String {
 
 /// What the runtime (`Runtime.swift`) adds: the future operations it
 /// drives tasks with, the boxes and `TsgenValue` unbox Codable goes
-/// through, and the wake it exports.
+/// through.
 fn runtime(lowered: &Json, out: &mut Surface) {
     for (m, n, t) in [
-        ("tw:future", "poll", "(externref, i32) -> (i32)"),
+        ("tw:future", "suspend", "(externref) -> (i32)"),
         ("tw:future", "drop", "(externref) -> ()"),
-        ("tw:future", "wait", "(i32) -> ()"),
+        ("tw:future", "suspend_race", "(i32, i32) -> (i32)"),
         ("tw:future", "new", "() -> (externref, externref)"),
         ("tw:box", "str", "(i32, i32) -> (externref)"),
         ("tw:box", "f64", "(f64) -> (externref)"),
@@ -272,8 +272,6 @@ fn runtime(lowered: &Json, out: &mut Surface) {
         ("tw:unbox".into(), "TsgenValue?".into()),
         format!("(externref) -> (i32{})", enum_slots(value)),
     );
-    out.exports
-        .insert("tw:future/wake".into(), "(i32) -> ()".into());
 }
 
 fn walk(j: &Json, out: &mut Surface) {
