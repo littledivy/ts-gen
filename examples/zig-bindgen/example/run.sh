@@ -6,7 +6,7 @@
 # `./run.sh serve` then serves it in workerd and curls every route;
 # `./run.sh node` runs the routes node can serve.
 #
-# Env: WORKERD (else `workerd` on PATH); TSGEN_ZIG_BUILT when zig-bindgen
+# Env: WORKERD (else `workerd` on PATH); PORT (else 8962) for `serve`; TSGEN_ZIG_BUILT when zig-bindgen
 # is already built. Needs Zig 0.17 and binaryen's wasm-merge.
 set -euo pipefail
 EX="$(cd "$(dirname "$0")" && pwd)"
@@ -63,10 +63,11 @@ case "${1:-}" in
   node) node "$OUT/node.mjs" ;;
   serve)
     mkdir -p "$OUT/storage"
-    (cd "$OUT" && exec "${WORKERD:-workerd}" serve config.capnp --experimental 2> workerd.log) &
+    PORT="${PORT:-8962}"
+    (cd "$OUT" && exec "${WORKERD:-workerd}" serve config.capnp --experimental --socket-addr "http=127.0.0.1:$PORT" 2> workerd.log) &
     pid=$!
     trap 'kill $pid 2>/dev/null' EXIT
-    U=http://127.0.0.1:8962
+    U=http://127.0.0.1:$PORT
     for _ in $(seq 1 50); do curl -s -o /dev/null $U/ && break; sleep 0.2; done
     curl -s -o /dev/null $U/ || { cat "$OUT/workerd.log" >&2; exit 1; }
 

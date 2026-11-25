@@ -262,9 +262,8 @@ fn walk(j: &Json, out: &mut Surface) {
 /// The protocol the runtime (`tsgen.zig`) uses whatever the module.
 fn runtime(out: &mut Surface) {
     for (m, n, t) in [
-        ("tw:future", "poll", "(externref, i32) -> (i32)"),
+        ("tw:future", "suspend", "(externref) -> (i32)"),
         ("tw:future", "drop", "(externref) -> ()"),
-        ("tw:future", "wait", "(i32) -> ()"),
         ("tw:box", "str", "(i32, i32) -> (externref)"),
         ("tw:box", "f64", "(f64) -> (externref)"),
         ("tw:box", "bool", "(i32) -> (externref)"),
@@ -283,7 +282,6 @@ fn runtime(out: &mut Surface) {
         ("tw:free", "(i32, i32, i32) -> ()"),
         ("tw:table/alloc", "(i32) -> (i32)"),
         ("tw:table/free", "(i32, i32) -> ()"),
-        ("tw:future/wake", "(i32) -> ()"),
     ] {
         out.exports.insert(n.into(), t.into());
     }

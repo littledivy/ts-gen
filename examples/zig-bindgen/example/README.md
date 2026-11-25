@@ -7,7 +7,7 @@ A tour of the Workers API from Zig: a Cloudflare Worker over
 text or JSON; `/` lists them.
 
 ```sh
-./run.sh serve   # the tour: workerd on 127.0.0.1:8962, every route curled (WORKERD or PATH)
+./run.sh serve   # the tour: workerd on 127.0.0.1:8962 (or PORT), every route curled (WORKERD or PATH)
 ./run.sh node    # the routes node can serve
 ```
 

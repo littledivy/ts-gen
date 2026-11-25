@@ -17,7 +17,6 @@
 {"c":"tsgen:tw:js/global send(str)","module":"tw:js/global","name":"send(str)","params":["i32","i32"],"results":["externref"],"throws":null},
 {"c":"tsgen:tw:js/global send(str,RequestInit)","module":"tw:js/global","name":"send(str,RequestInit)","params":["i32","i32","externref"],"results":["externref"],"throws":null},
 {"c":"tsgen:tw:js/global ping()","module":"tw:js/global","name":"ping()","params":[],"results":["externref"],"throws":null},
-{"c":"tsgen:tw:future poll","module":"tw:future","name":"poll","params":["externref","i32"],"results":["i32"],"throws":null},
 {"c":"tsgen:tw:future drop","module":"tw:future","name":"drop","params":["externref"],"results":[],"throws":null},
 {"c":"tsgen:tw:box str","module":"tw:box","name":"str","params":["i32","i32"],"results":["externref"],"throws":null},
 {"c":"tsgen:tw:box f64","module":"tw:box","name":"f64","params":["f64"],"results":["externref"],"throws":null},

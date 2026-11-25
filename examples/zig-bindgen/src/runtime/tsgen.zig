@@ -20,9 +20,9 @@
 //! `keep()` (a value) or copied into `gpa` (bytes). An exported class's
 //! constructor keeps what it receives.
 //!
-//! Calls block: a future is polled, and while it's pending the module
-//! suspends in `("tw:future", "wait")` (JSPI) until it settles, so a
-//! binding returns the value, or the future's rejection as an error.
+//! Calls block: a pending future suspends the module in
+//! `("tw:future", "suspend")` (JSPI) until it settles, so a binding returns
+//! the value, or the future's rejection as an error.
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
@@ -46,10 +46,11 @@ extern "shim" fn tsgen_ref_clear(base: i32, n: i32) void;
 extern "shim" fn tsgen_ref_copy(dst: i32, src: i32) void;
 extern "shim" fn tsgen_ref_is_null(slot: i32) i32;
 
-const wait = @extern(*const fn (i32) callconv(.c) void, .{ .name = "wait", .library_name = "tw:future" });
+/// Suspends until the future in slot `f` settles: 1 resolved, 2 rejected,
+/// 0 dropped while parked. The shim puts the stack pointer back.
+extern "shim" fn tsgen_suspend(f: i32) i32;
 
 const ops = struct {
-    extern "shim" fn @"tsgen:tw:future poll"(f: i32, waker: i32) i32;
     extern "shim" fn @"tsgen:tw:future drop"(f: i32) void;
     extern "shim" fn @"tsgen:tw:box str"(p: i32, n: i32) i32;
     extern "shim" fn @"tsgen:tw:box f64"(v: f64) i32;
@@ -1117,15 +1118,13 @@ pub fn Future(comptime V: type, comptime take: anytype, comptime err_op: anytype
         /// its rejection, and frees the slot.
         pub fn settle(f: i32) Z {
             defer free(f, 1);
-            while (true) {
-                const state = ops.@"tsgen:tw:future poll"(f, 0);
-                if (state == 1) break;
-                if (state == 2) {
-                    const P = Payload(E);
-                    const r = invoke(err_op, P.wire.len, .{word(i32, f)});
-                    return raise(E, P.lift(&r));
-                }
-                wait(0);
+            const state = tsgen_suspend(f);
+            // A future the bindings hold isn't dropped while awaited.
+            if (state == 0) @trap();
+            if (state == 2) {
+                const P = Payload(E);
+                const r = invoke(err_op, P.wire.len, .{word(i32, f)});
+                return raise(E, P.lift(&r));
             }
             if (V == Unit) {
                 _ = invoke(take, 0, .{word(i32, f)});
@@ -1526,8 +1525,6 @@ inline fn wordsOfArgs(in: anytype) [in.len]u64 {
 // ---------------------------------------------------------------------------
 // Exports every module has.
 
-fn wake(_: i32) callconv(.c) void {}
-
 comptime {
     @export(&tsgenRetArea, .{ .name = "tsgen_ret_area" });
     @export(&twRealloc, .{ .name = "tw:realloc" });
@@ -1536,7 +1533,6 @@ comptime {
     @export(&twTableFree, .{ .name = "tw:table/free" });
     @export(&refAlloc1, .{ .name = "tsgen_ref_alloc1" });
     @export(&refFree1, .{ .name = "tsgen_ref_free1" });
-    @export(&wake, .{ .name = "tw:future/wake" });
 }
 
 /// A Worker has no stderr: a panic traps. Declare

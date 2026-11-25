@@ -3,7 +3,6 @@
 {"c":"tsgen:tw:js/global DurableObjectState.new()","module":"tw:js/global","name":"DurableObjectState.new()","params":[],"results":["externref"],"throws":null},
 {"c":"tsgen:tw:js/global DurableObject#set:alarm(fn()->future<unit>?)","module":"tw:js/global","name":"DurableObject#set:alarm(fn()->future<unit>?)","params":["externref","i32"],"results":[],"throws":null},
 {"c":"tsgen:tw:js/global DurableObject.new()","module":"tw:js/global","name":"DurableObject.new()","params":[],"results":["externref"],"throws":null},
-{"c":"tsgen:tw:future poll","module":"tw:future","name":"poll","params":["externref","i32"],"results":["i32"],"throws":null},
 {"c":"tsgen:tw:future drop","module":"tw:future","name":"drop","params":["externref"],"results":[],"throws":null},
 {"c":"tsgen:tw:box str","module":"tw:box","name":"str","params":["i32","i32"],"results":["externref"],"throws":null},
 {"c":"tsgen:tw:box f64","module":"tw:box","name":"f64","params":["f64"],"results":["externref"],"throws":null},

@@ -31,7 +31,6 @@
 {"c":"tsgen:tw:js/global tagged(Tagged)","module":"tw:js/global","name":"tagged(Tagged)","params":["i32","externref"],"results":[],"throws":{"module":"tw:tag","name":"err","params":["i32","externref"]}},
 {"c":"tsgen:tw:js/global scalar(VKind?)","module":"tw:js/global","name":"scalar(VKind?)","params":["i32","i32","i32","f64"],"results":[],"throws":{"module":"tw:tag","name":"err","params":["i32","externref"]}},
 {"c":"tsgen:tw:js/global configure(Universal)","module":"tw:js/global","name":"configure(Universal)","params":["externref"],"results":[],"throws":{"module":"tw:tag","name":"err","params":["i32","externref"]}},
-{"c":"tsgen:tw:future poll","module":"tw:future","name":"poll","params":["externref","i32"],"results":["i32"],"throws":null},
 {"c":"tsgen:tw:future drop","module":"tw:future","name":"drop","params":["externref"],"results":[],"throws":null},
 {"c":"tsgen:tw:box str","module":"tw:box","name":"str","params":["i32","i32"],"results":["externref"],"throws":null},
 {"c":"tsgen:tw:box f64","module":"tw:box","name":"f64","params":["f64"],"results":["externref"],"throws":null},

@@ -1441,7 +1441,6 @@ fn jsonTag(o: *std.ArrayList(u8), a: Allocator, t: ?Tag) !void {
 
 // The protocol imports the runtime makes itself (tsgen.zig `ops`).
 const runtime_ops = [_]struct { []const u8, []const u8, []const []const u8, []const []const u8 }{
-    .{ "tw:future", "poll", &.{ "externref", "i32" }, &.{"i32"} },
     .{ "tw:future", "drop", &.{"externref"}, &.{} },
     .{ "tw:box", "str", &.{ "i32", "i32" }, &.{"externref"} },
     .{ "tw:box", "f64", &.{"f64"}, &.{"externref"} },

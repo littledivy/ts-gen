@@ -47,7 +47,6 @@
 {"c":"tsgen:tw:js/global big(i64,u64)","module":"tw:js/global","name":"big(i64,u64)","params":["i64","i64"],"results":["i64"],"throws":null},
 {"c":"tsgen:tw:js/global maybe()","module":"tw:js/global","name":"maybe()","params":[],"results":["externref"],"throws":null},
 {"c":"tsgen:tw:js/global crypto.randomUUID()","module":"tw:js/global","name":"crypto.randomUUID()","params":[],"results":["i32","i32"],"throws":null},
-{"c":"tsgen:tw:future poll","module":"tw:future","name":"poll","params":["externref","i32"],"results":["i32"],"throws":null},
 {"c":"tsgen:tw:future drop","module":"tw:future","name":"drop","params":["externref"],"results":[],"throws":null},
 {"c":"tsgen:tw:box str","module":"tw:box","name":"str","params":["i32","i32"],"results":["externref"],"throws":null},
 {"c":"tsgen:tw:box f64","module":"tw:box","name":"f64","params":["f64"],"results":["externref"],"throws":null},

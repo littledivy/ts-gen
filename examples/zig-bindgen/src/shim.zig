@@ -212,6 +212,12 @@ pub fn wat(a: Allocator, manifest: Value, wasm: []const u8) ![]const u8 {
         } else if (rs.len == 1) try o.print(a, " (result {s})", .{slotType(rs[0].string)});
         try o.appendSlice(a, "))\n");
     }
+    const suspends = used.imports.contains("tsgen_suspend");
+    if (suspends) try o.print(a,
+        \\  (import "{s}" "__stack_pointer" (global $sp (mut i32)))
+        \\  (import "tw:future" "suspend" (func $suspend (param externref) (result i32)))
+        \\
+    , .{lang});
     try o.appendSlice(a,
         \\  (table $t (export "tw:table") 132 externref)
         \\  (global (export "tw:table/stack_base") i32 (i32.const 1))
@@ -231,6 +237,18 @@ pub fn wat(a: Allocator, manifest: Value, wasm: []const u8) ![]const u8 {
         \\    (local.set $v (table.get $t (local.get $s)))
         \\    (call $free (local.get $s))
         \\    (local.get $v))
+        \\
+    );
+    // A suspension (IR.md §16), for a slot. Another call can run on Zig's
+    // linear-memory stack while this one is parked, so the stack pointer is
+    // put back as it resumes. Zig's slots are all on its heap, so there's no
+    // table stack to keep.
+    if (suspends) try o.appendSlice(a,
+        \\  (func (export "tsgen_suspend") (param $f i32) (result i32) (local $s i32) (local $r i32)
+        \\    (local.set $s (global.get $sp))
+        \\    (local.set $r (call $suspend (table.get $t (local.get $f))))
+        \\    (global.set $sp (local.get $s))
+        \\    (local.get $r))
         \\
     );
     for (imports.items, 0..) |e, i| {
